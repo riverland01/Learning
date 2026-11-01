@@ -96,6 +96,64 @@ A reader should be able to answer: **What is it? Why does it work? Why was it de
 
 For advanced topics, emphasize design constraints, inductive biases, computational or economic trade-offs, competing models, and failure cases. Connect new ideas to prior knowledge without forcing analogies that obscure differences. Do not impose a uniform word count; allocate depth to difficult concepts and trim repetition.
 
+## 4A. Course-material writing style
+
+**Default voice: a clear, patient expert tutor explaining a subject to an intelligent learner.** Use plain language, connected reasoning, and precise technical terms. Make the explanation easy to follow while preserving the curriculum's intellectual depth. Adapt to the learner profiles rather than imposing a school reading level.
+
+### Voice, sentences, and paragraphs
+
+- Address the learner as **you** when it helps explain an action or interpretation. Keep the tone professional, approachable, and respectful. Avoid forced informality, exaggerated enthusiasm, and patronizing phrases such as “obviously,” “simply,” or “as everyone knows.”
+- Prefer familiar words and concrete verbs: “use” rather than “utilize”; “the algorithm updates the weights” rather than “an updating of the weights is performed.” Prefer active voice when the actor matters; passive voice is appropriate when the process or result deserves emphasis.
+- Keep sentences focused. Split sentences that bury a point under several conditions, but retain the qualifications needed for accuracy. Vary sentence length naturally; do not enforce a word limit or reduce reasoning to choppy fragments.
+- Give each paragraph one main point. Usually state it early, then explain the mechanism, evidence, or example. Use explicit links such as “because,” “therefore,” and “however” when they clarify the relationship between ideas. Avoid vague references such as “this” when several antecedents are possible.
+- Teach through connected prose. Use bullets for genuinely parallel items, numbered lists for ordered steps, and tables for comparisons. Do not turn the lesson into slide notes, a glossary, or a succession of isolated claims.
+- Introduce unfamiliar technical terms with a brief explanation at first use, then use them consistently. Expand unfamiliar acronyms. Avoid unexplained synonyms, idioms, and cultural references that add a second learning burden.
+
+These language and paragraph conventions adapt the Open University and Google guidance listed below [1–4].
+
+### Match the writing mode to the learning task
+
+Use these modes within a lesson as needed; they are not mandatory sections or separate deliverables.
+
+| Learning task | Writing mode and required treatment |
+| --- | --- |
+| Understand a concept or mechanism | **Explanatory narrative:** start with a concrete situation, name the central idea, then explain the causal or logical steps. Connect the example to the general principle and state its limits. |
+| Understand a calculation, derivation, or algorithm | **Worked explanation:** state the goal and assumptions; show consequential intermediate steps and why each follows; interpret the result in the original context. Avoid unexplained jumps such as “it follows immediately.” |
+| Choose between approaches or evaluate a claim | **Comparative analysis:** compare alternatives against the same relevant criteria, identify the conditions that change the choice, and distinguish evidence from interpretation. Avoid unsupported “best method” claims. |
+| Carry out a procedure or implementation | **Procedural explanation:** give prerequisites, ordered actions, and the expected result or observable check. Explain important decisions and failure points rather than presenting an unexplained recipe. |
+
+### Make difficult ideas learnable
+
+- Move between concrete examples and abstract representations, explicitly identifying how their parts correspond. For unfamiliar ideas, usually establish a useful intuition before formalizing it; adapt the order when the learner already knows the intuition. This applies the representation guidance in [5], not a universal sequence proven best for every topic.
+- State what an equation expresses before manipulating it. Define new symbols, relevant units or dimensions, and assumptions nearby. Explain the meaning of important transformations and interpret the result in words. Preserve derivations and proofs when they serve the outcomes.
+- Keep essential explanation beside the equation, code, or diagram it explains. Tell the reader what a visual shows and why that feature matters; do not make them infer the intended lesson from an unlabeled illustration [5].
+- Use one focused worked example where needed, with a short contrasting case only when it exposes an important boundary. Identify which details are incidental and which make the principle work. Reduce routine scaffolding for experienced learners while retaining difficult reasoning.
+- Explain likely misconceptions directly: give the tempting interpretation, why it fails, and the correct distinction. Use analogies only when they help, and identify where the correspondence ends.
+- Use descriptive headings that reveal the content, such as “Why the gradient shrinks,” rather than generic headings such as “Deep dive.” Keep essential reasoning in the main narrative; reserve optional detail for brief asides or links.
+- End a substantial unit with a brief synthesis of the mechanism, its conditions of use, and its connection to the next idea. Do not repeat the whole lesson or claim that readable prose establishes learner mastery.
+
+These modes and implementation rules are repository editorial choices informed by the references, not a separately validated teaching method. They do not authorize quizzes, exercises, or simulations; Section 3A still governs those additions.
+
+### Example and editing check
+
+**Too compressed:** “Regularization mitigates overfitting by constraining model complexity.”
+
+**Teaching version:** “A model can fit the training data closely and still make poor predictions on new data. One way to reduce this problem is to add a penalty for large weights to the training objective. This is called weight regularization. The penalty makes a better fit to the training data worthwhile only if that improvement outweighs the added penalty. If the penalty is too strong, the model can underfit.”
+
+The teaching version supplies the problem, one specific mechanism, and a limitation. It does not imply that every form of regularization penalizes weights.
+
+Before finalizing, check that the reader can follow the reasoning without guessing missing connections, that terms and symbols appear before they are used, and that headings and formatting expose a coherent argument. Remove filler and duplication; retain the detail needed to explain **why** a step works. Readability scores or short sentences alone do not establish instructional quality.
+
+### Writing and learning references
+
+Reviewed online on **2026-11-01**. Adapt the relevant principles; external recommendations do not override repository scope or opt-in rules.
+
+1. The Open University, OpenLearn Create, [“Using plain English in online writing”](https://www.open.edu/openlearncreate/mod/book/view.php?chapterid=39750&id=244334): learner-facing language, manageable sections, meaningful headings, and linking sentences.
+2. Google, Technical Writing One, [“Audience”](https://developers.google.com/tech-writing/one/audience): explain the knowledge gap, account for prior knowledge, and avoid unexplained jargon and idioms.
+3. Google, Technical Writing One, [“Clear sentences”](https://developers.google.com/tech-writing/one/clear-sentences): concrete subjects, precise verbs, and factual rather than promotional language.
+4. Google, Technical Writing One, [“Paragraphs”](https://developers.google.com/tech-writing/one/paragraphs): cohesive paragraphs with a clear central point and supporting explanation.
+5. Pashler et al., Institute of Education Sciences, [*Organizing Instruction and Study to Improve Student Learning*](https://ies.ed.gov/ncee/wwc/PracticeGuide/1) (2007): evidence-informed recommendations on worked examples, integrating graphics with explanations, and connecting concrete and abstract representations. This is instructional guidance, not a prose style manual; its recommendations have different evidence ratings.
+
 ## 5. Format selection and visual pedagogy
 
 Choose the **smallest format that supports the learning objective**:
