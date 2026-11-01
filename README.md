@@ -13,3 +13,5 @@ Personalized learning materials organized by subject. Follow [AGENTS.md](AGENTS.
 Each subject lives in `subjects/<subject-slug>/`, with its syllabus in `CURRICULUM.md`. Add `lessons/`, `simulations/`, `assessments/`, and `assets/` only when needed. Simulations and quizzes require explicit opt-in under AGENTS.md.
 
 Add `LEARNER_PROFILE.md` at the repository root and subject-specific `SUBJECT_PROFILE.md` files when preferences are supplied. Track content status and learner status separately in a subject's `PROGRESS.md` when lesson authoring begins.
+
+Subject curricula, subject profiles, and progress files are kept locally and ignored by Git. Links to those files work when the local copies are present; a fresh clone does not include them.
