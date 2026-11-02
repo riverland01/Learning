@@ -60,6 +60,17 @@ For every content-generation task:
 
 If modifying existing materials, inspect them first, preserve the learner's edits and established terminology, and make targeted revisions rather than unnecessary wholesale rewrites. Keep original lesson IDs and links stable wherever possible.
 
+### Research, writing and review responsibilities
+
+Keep these responsibilities distinct, while scaling subagent use to the work:
+
+- **One writer owns the complete lesson.** The writer designs the explanatory sequence around the curriculum and learner profiles, integrates research, maintains consistent terminology and notation, and resolves review findings. Other agents may contribute evidence or critique, but the writer must turn their contributions into one coherent explanation rather than concatenate independently drafted sections.
+- **Use a separate research subagent when the evidence demands it.** Delegate research when unfamiliar or contested concepts, competing explanations, time-sensitive claims or substantial source verification warrant a focused investigation. For familiar foundational material with limited verification needs, the writer may perform the research directly; a separate researcher is not required for every lesson.
+- **Give the researcher a bounded evidence task.** Supply the intended outcomes and relevant learner context. Request source-backed findings, assumptions, qualifications, common misconceptions and unresolved questions, with enough source detail for the writer to check the claims. Research findings inform the lesson; they do not change its approved scope or become lesson text without author review.
+- **Use an independent editorial reviewer for new lessons and substantial rewrites**, as required under “Editorial review and enforcement” below. The reviewer reads the complete draft for comprehension gaps and checks it against the editorial rules. The writer resolves findings and rechecks affected passages; technical or source uncertainties return to research when needed.
+
+Research can proceed independently where its questions are separable, but editorial review must inspect an integrated draft. Do not require three agents for every task or treat the number of agents as evidence of quality. The writer remains accountable for accuracy, clarity, verification and the final deliverables.
+
 ## 3A. Token economy and explicit opt-in for simulations and quizzes
 
 **Default output is the core lesson only.** Satisfy the curriculum outcomes with a focused explanation, essential equations and diagrams, and one meaningful worked example where needed. Do **not** automatically generate simulations, interactive JavaScript demonstrations, standalone quizzes, multiple-choice questions, exercise sets, answer keys, assessment files, or extended project assignments—even when a curriculum mentions them as "preferred" or lists them as possible learning activities.
