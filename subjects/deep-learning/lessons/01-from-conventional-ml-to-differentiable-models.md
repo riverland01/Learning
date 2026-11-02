@@ -46,7 +46,7 @@ We will first examine how these two layers calculate a prediction. Then we will 
 
 The hidden layer begins with an operation you know from linear regression: multiply each input feature by a weight, add the results, and add a bias. A **hidden unit** performs one such calculation, then applies an activation function. Its output becomes one learned feature for the output layer.
 
-Represent one observation by a column vector $x$ containing its $d$ input features. In our inspection task, $d=2$, with contrast in the first entry and edge density in the second. Suppose the hidden layer contains $m$ units. Each unit needs $d$ weights, one for each input feature, and one bias.
+Represent one observation by a column vector $x$ containing its $d$ input features. In our inspection task, $d=2$, with contrast in the first entry and edge density in the second. Let the hidden layer contain $m$ units. The number $m$ is its **width**, a design choice called a **hyperparameter**. You choose how many units exist; ordinary training learns their weights and biases rather than choosing their number. The width need not equal the number of input features. Each hidden unit needs $d$ weights, one for each input feature, and one bias. We will discuss how to choose the width after tracing the calculation.
 
 We collect the hidden weights into a matrix $W_1$ with $m$ rows and $d$ columns. **Row $i$ contains the weights for hidden unit $i$.** The vector $b_1$ contains the $m$ biases. The subscript 1 identifies the hidden layer; later, $W_2$ and $b_2$ will hold the output layer's parameters. These symbols identify parameter arrays, not complete layers.
 
@@ -95,9 +95,11 @@ $$
 
 The product $W_2W_1$ acts as a new weight matrix, and $W_2b_1+b_2$ acts as a new bias. The prediction is still a weighted sum of the original input features plus a bias. For the inspection task, contrast still changes the prediction by the same amount at every value of edge density. Stacking affine layers has not allowed the model to express a feature interaction.[^2]
 
-ReLU allows the prediction's sensitivity to an input feature to depend on the other inputs. For instance, a hidden unit could compute $h_i=\max(0,c+e-3)$. At edge density $e=0$, increasing contrast from 1 to 2 leaves that unit's output at zero. At $e=3$, the same contrast increase changes its output from 1 to 2. The response to contrast therefore depends on edge density. This is an illustrative feature, not a fitted inspection result.
+ReLU allows the prediction's sensitivity to an input feature to depend on the other inputs. A unit receiving contrast and edge density computes $h_i=\max(0,w_{ic}c+w_{ie}e+b_i)$, where $w_{ic}$ and $w_{ie}$ are that unit's two weights and $b_i$ is its bias. To make its behaviour concrete, choose illustrative weights $w_{ic}=w_{ie}=1$ and bias $b_i=-3$. This unit then computes $h_i=\max(0,c+e-3)$. These numbers make the arithmetic easy to follow; they are not fitted values or a requirement that weights equal one.
 
-For this unit, the line $c+e-3=0$ separates input combinations that produce zero from those that produce a positive value. We call it an **activation boundary**. More generally, unit $i$ has a boundary where $z_i=0$. With two input features and nonzero weights, this boundary is a line; changing the weights can rotate it, and changing the bias shifts it. Training can therefore change which combinations of inputs activate the unit. This line describes one hidden unit's response, not a final classification decision.
+At edge density $e=0$, increasing contrast from 1 to 2 leaves this unit's output at zero. At $e=3$, the same contrast increase changes its output from 1 to 2. The response to contrast therefore depends on edge density.
+
+For these chosen weights and bias, the output is zero when $c+e\leq3$ and positive when $c+e>3$. The line $c+e-3=0$ marks the switch between these two behaviours. We call it an **activation boundary**. For other parameter values, the boundary is $w_{ic}c+w_{ie}e+b_i=0$, the set of inputs where the unit's preactivation $z_i$ equals zero. With two input features and at least one nonzero weight, this boundary is a line; changing the weights can rotate it, and changing the bias shifts it. Training can therefore change which combinations of inputs activate the unit. This line describes one hidden unit's response, not a final classification decision.
 
 Within a region where the same units remain active, each ReLU either passes through its weighted sum or outputs zero. The full prediction is affine within that region. Crossing an activation boundary can change which units contribute and hence change the prediction's slope. This is why a ReLU network is called **piecewise affine**: different input regions can use different affine relationships. It can approximate nonlinear relationships, but a finite ReLU network does not exactly reproduce every nonlinear function, such as a product, across a continuous input range.
 
@@ -107,11 +109,11 @@ So far, we have calculated a prediction for one observation. During training, we
 
 A batch contains $B$ observations, each with $d$ input features. The number $B$ is the **batch size**. Arrange the observations as rows of a matrix $X$: entry $X_{ij}$ contains feature $j$ of observation $i$. Thus $X$ has $B$ rows and $d$ columns. Ten observations with two features each give a matrix of shape `(10, 2)`.
 
-Numerical software, such as PyTorch, stores these values in arrays called **tensors**. A tensor's **shape** lists the size of each axis. For $X$, the first axis indexes observations and the second indexes input features. A matrix is stored as a two-axis tensor. A mathematical vector can be stored either as a one-axis array, such as `(d,)`, or with an explicit row or column orientation. Our earlier column vector uses shape `(d, 1)`, whereas a row vector uses `(1, d)`. We will keep the observation and feature axes explicit in the batch calculation.
+Numerical software, such as PyTorch, represents these values using arrays called **tensors**. A tensor's **shape** lists the size of each axis. For $X$, the first axis indexes observations and the second indexes input features. A matrix is represented as a two-axis tensor. A mathematical vector can be represented either as a one-axis array, such as `(d,)`, or with an explicit row or column orientation. Our earlier column vector uses shape `(d, 1)`, whereas a row vector uses `(1, d)`. We will keep the observation and feature axes explicit in the batch calculation.
 
 Each row of $X$ is the transpose of the single-observation column vector used earlier. The superscript $T$ denotes a **transpose**, which exchanges rows and columns. Consequently, the row form of $z=W_1x+b_1$ is $z^T=x^TW_1^T+b_1^T$. Applying that same calculation to every observation gives the batch equations below. Uppercase $Z$ and $H$ contain the preactivations and activations for all observations; $\hat Y$ contains their predictions.
 
-For these software-style batch equations, we store the same hidden biases $b_1$ as a one-axis array of shape `(m,)`, rather than an explicit column vector. Adding $b_1$ below means adding those biases to each observation's row. This changes their storage convention, not their values or their role in the model:
+For the software-style batch equations below, represent the hidden biases $b_1$ as a one-axis array of shape `(m,)`, rather than the earlier column vector of shape `(m, 1)`. This array contains the same $m$ bias values, one per hidden unit. Adding $b_1$ means adding bias $i$ to hidden unit $i$'s weighted sum for every observation. The bias array has no observation axis; it is reused for each row of the batch:
 
 $$
 Z=XW_1^T+b_1,\qquad H=\operatorname{ReLU}(Z),\qquad
@@ -131,7 +133,7 @@ $$
 
 The target matrix $Y$ also has one row per observation and one column for the severity score. The same weights are used for every observation: batching evaluates one model on several observations together.
 
-In the batch equations, adding $b_1$ means adding the same $m$ biases to every row of $XW_1^T$. PyTorch can store those biases as a one-axis array of shape `(m,)` and reuse it across all rows. This reuse is called **broadcasting**; it avoids explicitly constructing $B$ copies of the bias vector. The scalar output bias $b_2$ is likewise added to every prediction. PyTorch's `Linear(d, m)` stores weights in the $m\times d$ orientation used here and applies them to each observation's $d$ features.[^3]
+For instance, if two observations produce weighted sums `[2, 5]` and `[4, 7]`, adding the illustrative bias array `[0.1, 0.2]` gives `[2.1, 5.2]` and `[4.1, 7.2]`. Both rows use the same biases. This reuse across compatible array dimensions is called **broadcasting**; it avoids explicitly constructing $B$ copies of the bias array. The scalar output bias $b_2$ is likewise added to every prediction. PyTorch's `Linear(d, m)` represents weights in the $m\times d$ orientation used here and applies them to each observation's $d$ features.[^3]
 
 Shapes also determine which values are compared when calculating errors. Predictions and targets should both have shape `(B, 1)` so each prediction is compared with its own target. If predictions have shape `(B, 1)` but targets have shape `(B,)`, broadcasting instead produces a `(B, B)` array: entry $(i,j)$ compares prediction $i$ with target $j$. For a batch of ten observations, that gives 100 pairwise errors instead of ten matched errors. The subtraction can run without a software error while computing the wrong quantity.
 
@@ -141,7 +143,7 @@ We have established what both layers calculate and how their arrays are arranged
 
 ### 1. Forward pass: calculate the prediction
 
-For this observation, contrast is $x_1=1$ and edge density is $x_2=2$. The known target score is $y=2$. We use the two-layer network described above with hidden width $m=2$: two hidden units produce features for one output unit. Its starting weights and biases are:
+For this observation, contrast is $x_1=1$ and edge density is $x_2=2$. The known target score is $y=2$. We choose hidden width $m=2$ so that every calculation fits on the page, not because the input has two features. These two hidden units produce learned features for one output unit. The starting weights and biases are:
 
 $$
 x=\begin{bmatrix}1\\2\end{bmatrix},\quad y=2,\quad
@@ -332,11 +334,17 @@ Backpropagation computes gradients for an objective and graph. It does not choos
 
 ## ⚖️ Width, depth and engineering choices
 
-The worked network used two hidden units, but we could choose a different number of units or add another hidden layer. These choices change the network's **width** and **depth**. Width is the number of units in a layer. Increasing hidden width gives the output layer more learned features to combine, but adds trainable parameters. For $d$ input features, one hidden layer of width $m$ and one output unit, count the hidden weights, hidden biases, output weights and output bias in that order:
+The worked network used two hidden units, but we could choose a different width or add another hidden layer. Increasing hidden width gives the output layer more learned features to combine. Each added unit can learn a different weighted combination of inputs and a different activation boundary, although training may produce redundant or unused units. More units also add trainable parameters. For $d$ input features, one hidden layer of width $m$ and one output unit, count the hidden weights, hidden biases, output weights and output bias in that order:
 
 $$
 dm+m+m+1=m(d+2)+1.
 $$
+
+With our two input features, width $m=2$ gives 9 parameters, while $m=32$ gives 129. The input dimension tells you how many weights each hidden unit needs; it does not determine how many learned features will be useful. Width is selected as a hyperparameter rather than calculated from a universal input-size formula.[^2]
+
+For a small tabular MLP, a practical starting comparison is one hidden layer with a few widely spaced widths. For example, $m=4,8,16,32,64$ is an illustrative search range, not a requirement or an established optimum for this task. Doubling the width explores different model sizes without testing every integer. Compare validation performance using the same data splits and metric, and repeat promising configurations with several random initialisations so one fortunate run does not decide the choice. If validation performance is effectively tied, the smaller network may be preferable for its lower compute and memory cost.[^7]
+
+Interpret the training and validation results together. If increasing width improves both, the model may benefit from more capacity. If training error falls while validation error rises, the extra flexibility is fitting patterns that do not transfer. If both errors remain high, width is only one possible problem: feature scaling, learning rate, regularisation or insufficient training may prevent a suitable network from fitting. Module 2 explains how to investigate those training problems. A wider network is not guaranteed to generalise worse or better; width must be evaluated with the training procedure and available data.[^2][^7]
 
 Increasing **depth** adds successive learned transformations. An extra nonlinear hidden layer receives the features formed by the previous layer, so it can build combinations of those features rather than working directly from the original inputs. Depth conventions differ: our network has one hidden layer and two affine layers. State what you are counting when comparing designs.[^2]
 
@@ -371,3 +379,4 @@ The numerical example and derivations are original teaching material. The source
 [^4]: Stanford CS231n. Undated course notes. [Backpropagation, intuitions and staged computation](https://cs231n.github.io/optimization-2/).
 [^5]: Goodfellow, I., Bengio, Y. and Courville, A. (2016). *Deep Learning*, Chapter 8, especially §8.1 on optimisation and generalisation. [Optimisation for training deep models](https://www.deeplearningbook.org/contents/optimization.html).
 [^6]: PyTorch Tutorials. [Automatic differentiation with torch.autograd](https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html). Consulted for graph tracking, backward computation, gradient accumulation and disabling tracking.
+[^7]: Scikit-learn. User Guide, “Neural network models (supervised),” especially complexity and practical-use guidance. [MLP hyperparameters, initialisation, scaling and model selection](https://scikit-learn.org/stable/modules/neural_networks_supervised.html#tips-on-practical-use). Accessed 2 November 2026. The illustrative width range above is a teaching suggestion, not a prescribed range from this documentation.

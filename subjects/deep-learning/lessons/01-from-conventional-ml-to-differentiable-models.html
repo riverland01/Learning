@@ -87,7 +87,7 @@ so its effect now depends on edge density. Choosing that product is
 <strong>feature engineering</strong>: you specify a transformation
 before fitting the predictor. A neural network offers another way to
 construct useful features by learning parameters of the transformations
-themselves.<a class="footnote-ref" href="#ref-1" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+themselves.<sup><a aria-label="Reference 1" href="#ref-1">1</a></sup></p>
 <p>We will use a network with <strong>one hidden layer and one output
 layer</strong>. The hidden layer transforms the input features into new
 numerical features; the output layer combines those learned features
@@ -127,12 +127,19 @@ containing its
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
 input features. In our inspection task,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">d=2</annotation></semantics></math>,
-with contrast in the first entry and edge density in the second. Suppose
-the hidden layer contains
+with contrast in the first entry and edge density in the second. Let the
+hidden layer contain
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
-units. Each unit needs
+units. The number
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+is its <strong>width</strong>, a design choice called a
+<strong>hyperparameter</strong>. You choose how many units exist;
+ordinary training learns their weights and biases rather than choosing
+their number. The width need not equal the number of input features.
+Each hidden unit needs
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
-weights, one for each input feature, and one bias.</p>
+weights, one for each input feature, and one bias. We will discuss how
+to choose the width after tracing the calculation.</p>
 <p>We collect the hidden weights into a matrix
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>1</mn></msub><annotation encoding="application/x-tex">W_1</annotation></semantics></math>
 with
@@ -254,7 +261,8 @@ and the output layer computes
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mi>h</mi><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\hat y=W_2h+b_2</annotation></semantics></math>.
 This network is a <strong>multilayer perceptron (MLP)</strong>. Both
 layers are <strong>dense</strong>, meaning that each unit has a weight
-for every input from the preceding layer.<a class="footnote-ref" href="#ref-2" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+for every input from the preceding
+layer.<sup><a aria-label="Reference 2" href="#ref-2">2</a></sup></p>
 <h3 id="why-the-nonlinearity-changes-what-can-be-represented">Why the
 nonlinearity changes what can be represented</h3>
 <p>It may seem that stacking weighted sums already gives you a more
@@ -273,30 +281,49 @@ acts as a new bias. The prediction is still a weighted sum of the
 original input features plus a bias. For the inspection task, contrast
 still changes the prediction by the same amount at every value of edge
 density. Stacking affine layers has not allowed the model to express a
-feature interaction.<a class="footnote-ref" href="#ref-3" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+feature
+interaction.<sup><a aria-label="Reference 2" href="#ref-2">2</a></sup></p>
 <p>ReLU allows the prediction’s sensitivity to an input feature to
-depend on the other inputs. For instance, a hidden unit could compute
+depend on the other inputs. A unit receiving contrast and edge density
+computes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mn>0</mn><mo>,</mo><msub><mi>w</mi><mrow><mi>i</mi><mi>c</mi></mrow></msub><mi>c</mi><mo>+</mo><msub><mi>w</mi><mrow><mi>i</mi><mi>e</mi></mrow></msub><mi>e</mi><mo>+</mo><msub><mi>b</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">h_i=\max(0,w_{ic}c+w_{ie}e+b_i)</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>w</mi><mrow><mi>i</mi><mi>c</mi></mrow></msub><annotation encoding="application/x-tex">w_{ic}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>w</mi><mrow><mi>i</mi><mi>e</mi></mrow></msub><annotation encoding="application/x-tex">w_{ie}</annotation></semantics></math>
+are that unit’s two weights and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mi>i</mi></msub><annotation encoding="application/x-tex">b_i</annotation></semantics></math>
+is its bias. To make its behaviour concrete, choose illustrative weights
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>i</mi><mi>c</mi></mrow></msub><mo>=</mo><msub><mi>w</mi><mrow><mi>i</mi><mi>e</mi></mrow></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">w_{ic}=w_{ie}=1</annotation></semantics></math>
+and bias
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>b</mi><mi>i</mi></msub><mo>=</mo><mi>−</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">b_i=-3</annotation></semantics></math>.
+This unit then computes
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mn>0</mn><mo>,</mo><mi>c</mi><mo>+</mo><mi>e</mi><mo>−</mo><mn>3</mn><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">h_i=\max(0,c+e-3)</annotation></semantics></math>.
-At edge density
+These numbers make the arithmetic easy to follow; they are not fitted
+values or a requirement that weights equal one.</p>
+<p>At edge density
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">e=0</annotation></semantics></math>,
-increasing contrast from 1 to 2 leaves that unit’s output at zero. At
+increasing contrast from 1 to 2 leaves this unit’s output at zero. At
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">e=3</annotation></semantics></math>,
 the same contrast increase changes its output from 1 to 2. The response
-to contrast therefore depends on edge density. This is an illustrative
-feature, not a fitted inspection result.</p>
-<p>For this unit, the line
+to contrast therefore depends on edge density.</p>
+<p>For these chosen weights and bias, the output is zero when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>+</mo><mi>e</mi><mo>≤</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">c+e\leq3</annotation></semantics></math>
+and positive when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>+</mo><mi>e</mi><mo>&gt;</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">c+e&gt;3</annotation></semantics></math>.
+The line
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>+</mo><mi>e</mi><mo>−</mo><mn>3</mn><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">c+e-3=0</annotation></semantics></math>
-separates input combinations that produce zero from those that produce a
-positive value. We call it an <strong>activation boundary</strong>. More
-generally, unit
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-has a boundary where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">z_i=0</annotation></semantics></math>.
-With two input features and nonzero weights, this boundary is a line;
-changing the weights can rotate it, and changing the bias shifts it.
-Training can therefore change which combinations of inputs activate the
-unit. This line describes one hidden unit’s response, not a final
-classification decision.</p>
+marks the switch between these two behaviours. We call it an
+<strong>activation boundary</strong>. For other parameter values, the
+boundary is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>i</mi><mi>c</mi></mrow></msub><mi>c</mi><mo>+</mo><msub><mi>w</mi><mrow><mi>i</mi><mi>e</mi></mrow></msub><mi>e</mi><mo>+</mo><msub><mi>b</mi><mi>i</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">w_{ic}c+w_{ie}e+b_i=0</annotation></semantics></math>,
+the set of inputs where the unit’s preactivation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mi>i</mi></msub><annotation encoding="application/x-tex">z_i</annotation></semantics></math>
+equals zero. With two input features and at least one nonzero weight,
+this boundary is a line; changing the weights can rotate it, and
+changing the bias shifts it. Training can therefore change which
+combinations of inputs activate the unit. This line describes one hidden
+unit’s response, not a final classification decision.</p>
 <p>Within a region where the same units remain active, each ReLU either
 passes through its weighted sum or outputs zero. The full prediction is
 affine within that region. Crossing an activation boundary can change
@@ -336,17 +363,17 @@ rows and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
 columns. Ten observations with two features each give a matrix of shape
 <code>(10, 2)</code>.</p>
-<p>Numerical software, such as PyTorch, stores these values in arrays
-called <strong>tensors</strong>. A tensor’s <strong>shape</strong> lists
-the size of each axis. For
+<p>Numerical software, such as PyTorch, represents these values using
+arrays called <strong>tensors</strong>. A tensor’s
+<strong>shape</strong> lists the size of each axis. For
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>,
 the first axis indexes observations and the second indexes input
-features. A matrix is stored as a two-axis tensor. A mathematical vector
-can be stored either as a one-axis array, such as <code>(d,)</code>, or
-with an explicit row or column orientation. Our earlier column vector
-uses shape <code>(d, 1)</code>, whereas a row vector uses
-<code>(1, d)</code>. We will keep the observation and feature axes
-explicit in the batch calculation.</p>
+features. A matrix is represented as a two-axis tensor. A mathematical
+vector can be represented either as a one-axis array, such as
+<code>(d,)</code>, or with an explicit row or column orientation. Our
+earlier column vector uses shape <code>(d, 1)</code>, whereas a row
+vector uses <code>(1, d)</code>. We will keep the observation and
+feature axes explicit in the batch calculation.</p>
 <p>Each row of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
 is the transpose of the single-observation column vector used earlier.
@@ -365,15 +392,20 @@ and
 contain the preactivations and activations for all observations;
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>Y</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat Y</annotation></semantics></math>
 contains their predictions.</p>
-<p>For these software-style batch equations, we store the same hidden
+<p>For the software-style batch equations below, represent the hidden
 biases
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
-as a one-axis array of shape <code>(m,)</code>, rather than an explicit
-column vector. Adding
+as a one-axis array of shape <code>(m,)</code>, rather than the earlier
+column vector of shape <code>(m, 1)</code>. This array contains the same
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+bias values, one per hidden unit. Adding
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
-below means adding those biases to each observation’s row. This changes
-their storage convention, not their values or their role in the
-model:</p>
+means adding bias
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+to hidden unit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>’s
+weighted sum for every observation. The bias array has no observation
+axis; it is reused for each row of the batch:</p>
 <div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>X</mi><msubsup><mi>W</mi><mn>1</mn><mi>T</mi></msubsup><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo>,</mo><mspace width="2.0em"></mspace><mi>H</mi><mo>=</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mi>Z</mi><mo form="postfix" stretchy="false">)</mo><mo>,</mo><mspace width="2.0em"></mspace><mover><mi>Y</mi><mo accent="true">̂</mo></mover><mo>=</mo><mi>H</mi><msubsup><mi>W</mi><mn>2</mn><mi>T</mi></msubsup><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 Z=XW_1^T+b_1,\qquad H=\operatorname{ReLU}(Z),\qquad
 \hat Y=HW_2^T+b_2.
@@ -440,24 +472,21 @@ in software</td>
 also has one row per observation and one column for the severity score.
 The same weights are used for every observation: batching evaluates one
 model on several observations together.</p>
-<p>In the batch equations, adding
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
-means adding the same
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
-biases to every row of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msubsup><mi>W</mi><mn>1</mn><mi>T</mi></msubsup></mrow><annotation encoding="application/x-tex">XW_1^T</annotation></semantics></math>.
-PyTorch can store those biases as a one-axis array of shape
-<code>(m,)</code> and reuse it across all rows. This reuse is called
+<p>For instance, if two observations produce weighted sums
+<code>[2, 5]</code> and <code>[4, 7]</code>, adding the illustrative
+bias array <code>[0.1, 0.2]</code> gives <code>[2.1, 5.2]</code> and
+<code>[4.1, 7.2]</code>. Both rows use the same biases. This reuse
+across compatible array dimensions is called
 <strong>broadcasting</strong>; it avoids explicitly constructing
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
-copies of the bias vector. The scalar output bias
+copies of the bias array. The scalar output bias
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>2</mn></msub><annotation encoding="application/x-tex">b_2</annotation></semantics></math>
 is likewise added to every prediction. PyTorch’s
-<code>Linear(d, m)</code> stores weights in the
+<code>Linear(d, m)</code> represents weights in the
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">m\times d</annotation></semantics></math>
 orientation used here and applies them to each observation’s
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
-features.<a class="footnote-ref" href="#ref-4" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+features.<sup><a aria-label="Reference 3" href="#ref-3">3</a></sup></p>
 <p>Shapes also determine which values are compared when calculating
 errors. Predictions and targets should both have shape
 <code>(B, 1)</code> so each prediction is compared with its own target.
@@ -490,10 +519,11 @@ and edge density is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">x_2=2</annotation></semantics></math>.
 The known target score is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">y=2</annotation></semantics></math>.
-We use the two-layer network described above with hidden width
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">m=2</annotation></semantics></math>:
-two hidden units produce features for one output unit. Its starting
-weights and biases are:</p>
+We choose hidden width
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">m=2</annotation></semantics></math>
+so that every calculation fits on the page, not because the input has
+two features. These two hidden units produce learned features for one
+output unit. The starting weights and biases are:</p>
 <div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>2</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><mi>y</mi><mo>=</mo><mn>2</mn><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>W</mi><mn>1</mn></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.5</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>0.5</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><mn>1</mn></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>W</mi><mn>2</mn></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>2</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><mn>2</mn></msub><mo>=</mo><mn>0.5</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 x=\begin{bmatrix}1\\2\end{bmatrix},\quad y=2,\quad
 W_1=\begin{bmatrix}1&amp;-1\\0.5&amp;0.5\end{bmatrix},\quad
@@ -542,7 +572,7 @@ which depends on the input and hidden parameters. To improve the
 prediction, we need to determine how changing each parameter changes the
 final loss. <strong>Backpropagation</strong> calculates these
 sensitivities by following the dependencies in reverse, starting at the
-loss.<a class="footnote-ref" href="#ref-5" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+loss.<sup><a aria-label="Reference 4" href="#ref-4">4</a></sup></p>
 <h3 id="backward-pass-calculate-sensitivities">2. Backward pass:
 calculate sensitivities</h3>
 <p>For one parameter
@@ -688,7 +718,8 @@ a final prediction error can guide an early weight: the chain rule
 connects that weight to the error through the intervening operations.
 Backpropagation organises the calculations so shared intermediate
 sensitivities can be reused. When a value affects the loss along several
-paths, their derivative contributions are added.<a class="footnote-ref" href="#ref-6" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+paths, their derivative contributions are
+added.<sup><a aria-label="Reference 4" href="#ref-4">4</a></sup></p>
 <p>Notice the distinction between
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><mi>L</mi><mi>/</mi><mi>∂</mi><msub><mi>h</mi><mn>1</mn></msub><mo>=</mo><mn>1.5</mn></mrow><annotation encoding="application/x-tex">\partial L/\partial h_1=1.5</annotation></semantics></math>
 and
@@ -742,7 +773,8 @@ squared error is smaller. This step succeeded for the chosen example and
 learning rate. A larger step could increase the loss because the
 derivative describes local behaviour, not the effect of an arbitrarily
 large change. Even a successful training update does not establish that
-predictions will improve on validation data.<a class="footnote-ref" href="#fn7" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
+predictions will improve on validation
+data.<sup><a aria-label="Reference 5" href="#ref-5">5</a></sup></p>
 <p>For the same observation, the learned feature
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mn>2</mn></msub><annotation encoding="application/x-tex">h_2</annotation></semantics></math>
 fell from
@@ -767,7 +799,8 @@ Combining those rules through the chain rule is called <strong>automatic
 differentiation (AD)</strong>. Backpropagation is the reverse-mode use
 of AD for calculating a loss’s parameter gradients, following the
 dependencies from output toward input. PyTorch provides this through its
-autograd system.<a class="footnote-ref" href="#fn8" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+autograd
+system.<sup><a aria-label="Reference 6" href="#ref-6">6</a></sup></p>
 <p>AD does not estimate every derivative by repeatedly nudging
 parameters and measuring the loss. It applies derivative rules to the
 operations in the graph. It also does not need to simplify the whole
@@ -794,11 +827,13 @@ its weights a nonzero gradient.</p>
 <p>When you read a PyTorch training loop, <code>loss.backward()</code>
 is the gradient calculation. The optimiser’s update is a separate
 operation. The pseudocode clears old gradients because PyTorch
-accumulates parameter gradients unless you clear them.<a class="footnote-ref" href="#fn9" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+accumulates parameter gradients unless you clear
+them.<sup><a aria-label="Reference 6" href="#ref-6">6</a></sup></p>
 <p>After training, you can use the fitted network to predict scores for
 new inputs. This application is called <strong>inference</strong>. For
 ordinary inference, the parameters stay fixed, and a forward pass can
-run under <code>torch.no_grad()</code> without recording gradients.<a class="footnote-ref" href="#fn10" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
+run under <code>torch.no_grad()</code> without recording
+gradients.<sup><a aria-label="Reference 6" href="#ref-6">6</a></sup></p>
 <p>Keep four decisions separate:</p>
 <div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
 <colgroup>
@@ -843,11 +878,11 @@ design.</p>
 </section><section aria-labelledby="engineering-choices"><h2 id="engineering-choices">Width, depth and
 engineering choices</h2>
 <p>The worked network used two hidden units, but we could choose a
-different number of units or add another hidden layer. These choices
-change the network’s <strong>width</strong> and <strong>depth</strong>.
-Width is the number of units in a layer. Increasing hidden width gives
-the output layer more learned features to combine, but adds trainable
-parameters. For
+different width or add another hidden layer. Increasing hidden width
+gives the output layer more learned features to combine. Each added unit
+can learn a different weighted combination of inputs and a different
+activation boundary, although training may produce redundant or unused
+units. More units also add trainable parameters. For
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
 input features, one hidden layer of width
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
@@ -856,12 +891,44 @@ weights and output bias in that order:</p>
 <div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mi>m</mi><mo>+</mo><mi>m</mi><mo>+</mo><mi>m</mi><mo>+</mo><mn>1</mn><mo>=</mo><mi>m</mi><mo form="prefix" stretchy="false">(</mo><mi>d</mi><mo>+</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>1</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 dm+m+m+1=m(d+2)+1.
 </annotation></semantics></math></div>
+<p>With our two input features, width
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">m=2</annotation></semantics></math>
+gives 9 parameters, while
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>32</mn></mrow><annotation encoding="application/x-tex">m=32</annotation></semantics></math>
+gives 129. The input dimension tells you how many weights each hidden
+unit needs; it does not determine how many learned features will be
+useful. Width is selected as a hyperparameter rather than calculated
+from a universal input-size
+formula.<sup><a aria-label="Reference 2" href="#ref-2">2</a></sup></p>
+<p>For a small tabular MLP, a practical starting comparison is one
+hidden layer with a few widely spaced widths. For example,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>4</mn><mo>,</mo><mn>8</mn><mo>,</mo><mn>16</mn><mo>,</mo><mn>32</mn><mo>,</mo><mn>64</mn></mrow><annotation encoding="application/x-tex">m=4,8,16,32,64</annotation></semantics></math>
+is an illustrative search range, not a requirement or an established
+optimum for this task. Doubling the width explores different model sizes
+without testing every integer. Compare validation performance using the
+same data splits and metric, and repeat promising configurations with
+several random initialisations so one fortunate run does not decide the
+choice. If validation performance is effectively tied, the smaller
+network may be preferable for its lower compute and memory
+cost.<sup><a aria-label="Reference 7" href="#ref-7">7</a></sup></p>
+<p>Interpret the training and validation results together. If increasing
+width improves both, the model may benefit from more capacity. If
+training error falls while validation error rises, the extra flexibility
+is fitting patterns that do not transfer. If both errors remain high,
+width is only one possible problem: feature scaling, learning rate,
+regularisation or insufficient training may prevent a suitable network
+from fitting. Module 2 explains how to investigate those training
+problems. A wider network is not guaranteed to generalise worse or
+better; width must be evaluated with the training procedure and
+available
+data.<sup><a aria-label="Reference 2" href="#ref-2">2</a></sup><sup><a aria-label="Reference 7" href="#ref-7">7</a></sup></p>
 <p>Increasing <strong>depth</strong> adds successive learned
 transformations. An extra nonlinear hidden layer receives the features
 formed by the previous layer, so it can build combinations of those
 features rather than working directly from the original inputs. Depth
 conventions differ: our network has one hidden layer and two affine
-layers. State what you are counting when comparing designs.<a class="footnote-ref" href="#fn11" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
+layers. State what you are counting when comparing
+designs.<sup><a aria-label="Reference 2" href="#ref-2">2</a></sup></p>
 <p>Width and depth therefore offer different ways to represent a
 function. Neither guarantees a better fitted model. A useful design must
 also be trainable with the available data and resources, and its
@@ -952,40 +1019,33 @@ The sources below explain the underlying mechanisms and the PyTorch
 interfaces mentioned in the lesson. Sources were rechecked on <strong>2
 November 2026</strong>; the example is illustrative and does not report
 results from a fitted inspection model.</p>
-<section class="footnotes footnotes-end-of-document" id="footnotes" role="doc-endnotes">
-<hr/>
-<ol>
-<li id="ref-1"><p>Goodfellow, I., Bengio, Y. and Courville, A. (2016).
-<em>Deep Learning</em>, Chapter 6, introduction and feature-learning
-discussion. <a href="https://www.deeplearningbook.org/contents/mlp.html">Deep
-feedforward networks</a>.<a class="footnote-back" href="#fnref1" role="doc-backlink">↩︎</a></p></li>
-<li id="ref-2"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
-1: architecture, activations and representational power</a>.<a class="footnote-back" href="#fnref2" role="doc-backlink">↩︎</a></p></li>
-<li id="ref-3"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
-1: architecture, activations and representational power</a>.<a class="footnote-back" href="#fnref3" role="doc-backlink">↩︎</a></p></li>
-<li id="ref-4"><p>PyTorch. Version 2.9 documentation. <a href="https://docs.pytorch.org/docs/2.9/generated/torch.nn.Linear.html">torch.nn.Linear:
+<ol class="references" type="1">
+<li><p><span id="ref-1"></span>Goodfellow, I., Bengio, Y. and Courville,
+A. (2016). <em>Deep Learning</em>, Chapter 6, introduction and
+feature-learning discussion. <a href="https://www.deeplearningbook.org/contents/mlp.html">Deep
+feedforward networks</a>.</p></li>
+<li><p><span id="ref-2"></span>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
+1: architecture, activations and representational power</a>.</p></li>
+<li><p><span id="ref-3"></span>PyTorch. Version 2.9 documentation. <a href="https://docs.pytorch.org/docs/2.9/generated/torch.nn.Linear.html">torch.nn.Linear:
 affine transformation and parameter shapes</a>. Version-specific
 documentation is cited for the shape convention, not as a claim about
-the newest release.<a class="footnote-back" href="#fnref4" role="doc-backlink">↩︎</a></p></li>
-<li id="ref-5"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/optimization-2/">Backpropagation,
-intuitions and staged computation</a>.<a class="footnote-back" href="#fnref5" role="doc-backlink">↩︎</a></p></li>
-<li id="ref-6"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/optimization-2/">Backpropagation,
-intuitions and staged computation</a>.<a class="footnote-back" href="#fnref6" role="doc-backlink">↩︎</a></p></li>
-<li id="fn7"><p>Goodfellow, I., Bengio, Y. and Courville, A. (2016).
-<em>Deep Learning</em>, Chapter 8, especially §8.1 on optimisation and
-generalisation. <a href="https://www.deeplearningbook.org/contents/optimization.html">Optimisation
-for training deep models</a>.<a class="footnote-back" href="#fnref7" role="doc-backlink">↩︎</a></p></li>
-<li id="fn8"><p>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
+the newest release.</p></li>
+<li><p><span id="ref-4"></span>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/optimization-2/">Backpropagation,
+intuitions and staged computation</a>.</p></li>
+<li><p><span id="ref-5"></span>Goodfellow, I., Bengio, Y. and Courville,
+A. (2016). <em>Deep Learning</em>, Chapter 8, especially §8.1 on
+optimisation and generalisation. <a href="https://www.deeplearningbook.org/contents/optimization.html">Optimisation
+for training deep models</a>.</p></li>
+<li><p><span id="ref-6"></span>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
 differentiation with torch.autograd</a>. Consulted for graph tracking,
-backward computation, gradient accumulation and disabling tracking.<a class="footnote-back" href="#fnref8" role="doc-backlink">↩︎</a></p></li>
-<li id="fn9"><p>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
-differentiation with torch.autograd</a>. Consulted for graph tracking,
-backward computation, gradient accumulation and disabling tracking.<a class="footnote-back" href="#fnref9" role="doc-backlink">↩︎</a></p></li>
-<li id="fn10"><p>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
-differentiation with torch.autograd</a>. Consulted for graph tracking,
-backward computation, gradient accumulation and disabling tracking.<a class="footnote-back" href="#fnref10" role="doc-backlink">↩︎</a></p></li>
-<li id="fn11"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
-1: architecture, activations and representational power</a>.<a class="footnote-back" href="#fnref11" role="doc-backlink">↩︎</a></p></li>
+backward computation, gradient accumulation and disabling
+tracking.</p></li>
+<li><p><span id="ref-7"></span>Scikit-learn. User Guide, “Neural network
+models (supervised),” especially complexity and practical-use guidance.
+<a href="https://scikit-learn.org/stable/modules/neural_networks_supervised.html#tips-on-practical-use">MLP
+hyperparameters, initialisation, scaling and model selection</a>.
+Accessed 2 November 2026. The illustrative width range above is a
+teaching suggestion, not a prescribed range from this
+documentation.</p></li>
 </ol>
-</section>
 </section></article><footer>Reading edition · Works offline · <a href="01-from-conventional-ml-to-differentiable-models.md">Markdown source</a></footer></main></div></body></html>
