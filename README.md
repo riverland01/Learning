@@ -6,7 +6,7 @@ Personalized learning materials organized by subject. Follow [AGENTS.md](AGENTS.
 
 | Subject | Curriculum | Current contents |
 | --- | --- | --- |
-| Deep learning | [Architectural Intuition and Engineering Judgment](subjects/deep-learning/CURRICULUM.md) | [HTML course contents](subjects/deep-learning/index.html) · [Read Module 1](subjects/deep-learning/lessons/01-from-conventional-ml-to-differentiable-models.html) · [Progress](subjects/deep-learning/PROGRESS.md) |
+| Deep learning | [Architectural Intuition and Engineering Judgment](subjects/deep-learning/CURRICULUM.md) | [HTML course contents](subjects/deep-learning/index.html) · [Read Module 1](subjects/deep-learning/lessons/01-from-conventional-ml-to-differentiable-models.html) · [Read Module 2](subjects/deep-learning/lessons/02-making-networks-trainable.html) · [Progress](subjects/deep-learning/PROGRESS.md) |
 
 ## Organization
 
