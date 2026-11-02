@@ -31,65 +31,359 @@ figure{margin:30px 0} .diagram-scroll{overflow:auto;max-width:100%;padding:18px 
 .chapter-list{list-style:none;padding:0;margin:0;counter-reset:none}.chapter-list>li{margin:0;padding:25px 0 27px;border-bottom:1px solid var(--line)}.chapter-topline{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font:12px/1.5 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:9px}.chapter-list h3{font-size:22px;margin:0 0 10px;line-height:1.4}.chapter-list h3 a{text-decoration:none}.chapter-list h3 a:hover{text-decoration:underline}.chapter-list p{font-size:18px;line-height:1.65;margin:0}.chapter-status{font:13px/1.5 system-ui,sans-serif;color:var(--muted);margin-top:13px}.chapter-status.available{color:var(--accent);font-weight:650}.elective-list{padding-left:22px;font-size:18px}.elective-list li{margin:13px 0}.elective-list strong{font-family:system-ui,sans-serif;font-size:16px}.start-link{display:inline-block;background:var(--accent);color:#fffefa;padding:10px 18px;border-radius:3px;font:600 14px/1.5 system-ui,sans-serif;text-decoration:none;margin:4px 0 8px}.start-link:hover{background:#11474d}
 @media(max-width:800px){.course-intro{font-size:19px}.chapter-list h3{font-size:21px}}@media print{.start-link{background:none;color:inherit;padding:0}.chapter-list>li{break-inside:avoid}}
 
-</style></head><body><a class="skip" href="#lesson">Skip to lesson</a><div class="layout"><aside><p class="brand">Personal learning library</p><p class="nav-label" id="contents-label">In this module</p><nav aria-labelledby="contents-label"><ol><li><a href="#outcomes">Outcomes and starting point</a></li><li><a href="#motivation">The problem: useful features need not be obvious</a></li><li><a href="#forward-computation">Building the forward computation</a></li><li><a href="#worked-example">One network, traced through learning</a></li><li><a href="#automatic-differentiation">Computation graphs and automatic differentiation</a></li><li><a href="#engineering-choices">Width, depth and engineering choices</a></li><li><a href="#connections">What to carry forward</a></li><li><a href="#references">References</a></li></ol></nav><div class="side-footer">Deep learning · Week 1<a href="../index.html">Course contents</a><a href="../CURRICULUM.md">Course curriculum</a><a href="../PROGRESS.md">Learning progress</a></div></aside><main id="lesson"><header><p class="course-back"><a href="../index.html">← Course contents</a></p><p class="eyebrow">Deep learning / Module 01</p><h1>From conventional ML to differentiable models</h1><p class="meta">Core lesson · Week 1 · 1 November 2026</p></header><article><section aria-labelledby="outcomes"><h2 id="outcomes">Outcomes and starting point</h2>
-<p>You already know how to fit and evaluate predictive models. This module starts from that experience and explains what changes when the model learns intermediate features as well as a final predictor. You do not need prior knowledge of neural-network internals. We will introduce the matrix operations and derivatives as they become useful.</p>
+</style></head><body><a class="skip" href="#lesson">Skip to lesson</a><div class="layout"><aside><p class="brand">Personal learning library</p><p class="nav-label" id="contents-label">In this module</p><nav aria-labelledby="contents-label"><ol><li><a href="#outcomes">Outcomes and starting point</a></li><li><a href="#motivation">The problem: useful features need not be obvious</a></li><li><a href="#forward-computation">Building the forward computation</a></li><li><a href="#worked-example">One network, traced through learning</a></li><li><a href="#automatic-differentiation">Computation graphs and automatic differentiation</a></li><li><a href="#engineering-choices">Width, depth and engineering choices</a></li><li><a href="#connections">What to carry forward</a></li><li><a href="#references">References</a></li></ol></nav><div class="side-footer">Deep learning · Week 1<a href="../index.html">Course contents</a><a href="../CURRICULUM.md">Course curriculum</a><a href="../PROGRESS.md">Learning progress</a></div></aside><main id="lesson"><header><p class="course-back"><a href="../index.html">← Course contents</a></p><p class="eyebrow">Deep learning / Module 01</p><h1>From conventional ML to differentiable models</h1><p class="meta">Core lesson · Week 1 · Revised 2 November 2026</p></header><article><section aria-labelledby="outcomes"><h2 id="outcomes">Outcomes and starting point</h2>
+<p>You already know how to fit and evaluate predictive models. This
+module starts from that experience and explains what changes when the
+model learns intermediate features as well as a final predictor. You do
+not need prior knowledge of neural-network internals. We will introduce
+the matrix operations and derivatives as they become useful.</p>
 <p>By the end, you should be able to:</p>
 <ul>
-<li>Explain what a multilayer perceptron learns beyond a linear predictor, and why its nonlinearities matter.</li>
-<li>Trace a network's inputs, preactivations, hidden representations and output, including tensor shapes.</li>
-<li>Derive how an early weight affects the loss through intermediate operations.</li>
-<li>Distinguish a forward pass, backpropagation, a parameter update and inference.</li>
-<li>Explain what adding width or depth changes, without assuming that a larger model is better.</li>
+<li>Explain what a multilayer perceptron learns beyond a linear
+predictor, and why its nonlinearities matter.</li>
+<li>Trace a network’s inputs, preactivations, hidden representations and
+output, including tensor shapes.</li>
+<li>Derive how an early weight affects the loss through intermediate
+operations.</li>
+<li>Distinguish a forward pass, backpropagation, a parameter update and
+inference.</li>
+<li>Explain what adding width or depth changes, without assuming that a
+larger model is better.</li>
 </ul>
-<p>The aim is to follow one small network all the way from its inputs to a prediction, then trace how the prediction error changes its weights. Keeping track of the intermediate values and their shapes will make each step easier to interpret.</p>
-</section><section aria-labelledby="motivation"><h2 id="motivation">The problem: useful features need not be obvious</h2>
-<p>Imagine predicting the severity of a surface defect from an inspection image. You could extract descriptors such as contrast and edge density, then fit a linear regression model. In that model, increasing contrast by one unit has the same predicted effect at every level of edge density. That restriction may be unsuitable if high contrast signals a defect only when many edges are also present.</p>
-<p>You could address the restriction by designing interaction terms or other transformed features. But that requires you to choose useful transformations before fitting the predictor. A neural network gives you another option: let the training objective help shape those transformations.</p>
-<p>A neural network introduces an <strong>intermediate representation</strong>, a collection of derived features whose parameters are learned together with the final predictor. Instead of fixing every feature transformation, you specify a family of transformations and fit their parameters using the prediction objective. We will use a <strong>feedforward network</strong>: values pass from input toward output through successive stages, without looping back into an earlier stage.<sup><a href="#ref-1" aria-label="Reference 1">1</a></sup></p>
-<p>For example, an intermediate feature could be zero below a threshold and increase above it, with the threshold applied to a weighted combination of contrast and edge density. Training can adjust both the combination and its threshold. A later stage can then use that response to make a prediction.</p>
-<p>Feature engineering and feature learning can therefore coexist. In our example, you still supply two engineered image descriptors. The network learns how to transform and combine them; it does not discover its own image measurements directly from pixels.</p>
-<p>Think of a network as an adjustable measurement pipeline. Early stages build measurements; later stages combine them into a prediction. The training signal adjusts the whole pipeline. The analogy has a limit: hidden units need not correspond to named concepts such as “scratch” or “roughness”, and the loss does not prescribe a unique internal explanation.</p>
-<p class="callout">Our driving question is: How can one final prediction error tell an early transformation which way to change?</p>
-</section><section aria-labelledby="forward-computation"><h2 id="forward-computation">Building the forward computation</h2>
-<h3>An affine transformation makes weighted measurements</h3>
-<p>Start with the stage that combines the input descriptors. Put the <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span> input values for one example into a column vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span>. If you want <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span> intermediate measurements, arrange their weights as <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span> rows of a matrix <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">W_1</annotation></semantics></math></span>. A vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>b</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">b_1</annotation></semantics></math></span> supplies one offset for each measurement. Together they produce a vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi></mrow><annotation encoding="application/x-tex">z</annotation></semantics></math></span>:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>z</mi><mo>=</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo separator="true">,</mo><mspace width="2em"></mspace><mi>x</mi><mo>∈</mo><msup><mi mathvariant="double-struck">R</mi><mi>d</mi></msup><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>W</mi><mn>1</mn></msub><mo>∈</mo><msup><mi mathvariant="double-struck">R</mi><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow></msup><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>b</mi><mn>1</mn></msub><mo>∈</mo><msup><mi mathvariant="double-struck">R</mi><mi>m</mi></msup><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+<p>The aim is to follow one small network all the way from its inputs to
+a prediction, then trace how the prediction error changes its weights.
+Keeping track of the intermediate values and their shapes will make each
+step easier to interpret.</p>
+</section><section aria-labelledby="motivation"><h2 id="motivation">The problem:
+useful features need not be obvious</h2>
+<p>Imagine predicting the severity of a surface defect from an
+inspection image. Each image is one <strong>observation</strong>. You
+extract two input features: contrast, denoted by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>,
+and edge density, denoted by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>e</mi><annotation encoding="application/x-tex">e</annotation></semantics></math>.
+A linear regression model predicts a severity score
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>y</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat y</annotation></semantics></math>
+using a separate coefficient for each feature and a bias
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math>:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><mi>b</mi><mo>+</mo><msub><mi>w</mi><mi>c</mi></msub><mi>c</mi><mo>+</mo><msub><mi>w</mi><mi>e</mi></msub><mi>e</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\hat y=b+w_c c+w_e e.
+</annotation></semantics></math></div>
+<p>Once the coefficients are fitted, increasing contrast by one unit
+changes the prediction by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>w</mi><mi>c</mi></msub><annotation encoding="application/x-tex">w_c</annotation></semantics></math>,
+regardless of the edge density. The two coefficients need not be equal.
+The limitation is that contrast’s effect cannot depend on edge density.
+Suppose contrast is informative about severity only when many edges are
+present. That is a <strong>feature interaction</strong>: the effect of
+one feature depends on another.</p>
+<p>You could supply the additional feature
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mi>e</mi></mrow><annotation encoding="application/x-tex">ce</annotation></semantics></math>
+and fit its coefficient too. With a term
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>c</mi><mi>e</mi></mrow></msub><mi>c</mi><mi>e</mi></mrow><annotation encoding="application/x-tex">w_{ce}ce</annotation></semantics></math>,
+a one-unit increase in contrast changes the prediction by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mi>c</mi></msub><mo>+</mo><msub><mi>w</mi><mrow><mi>c</mi><mi>e</mi></mrow></msub><mi>e</mi></mrow><annotation encoding="application/x-tex">w_c+w_{ce}e</annotation></semantics></math>,
+so its effect now depends on edge density. Choosing that product is
+<strong>feature engineering</strong>: you specify a transformation
+before fitting the predictor. A neural network offers another way to
+construct useful features by learning parameters of the transformations
+themselves.<a class="footnote-ref" href="#ref-1" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<p>We will use a network with <strong>one hidden layer and one output
+layer</strong>. The hidden layer transforms the input features into new
+numerical features; the output layer combines those learned features
+into a predicted severity score. The collection of hidden-layer outputs
+is called an <strong>intermediate representation</strong>. We count two
+layers with trainable parameters; the input itself is not counted as a
+layer in this convention.</p>
+<p>This is a <strong>feedforward network</strong>: to make a prediction,
+we calculate the hidden features first and then use them to calculate
+the output, without looping back to an earlier layer. That order of
+calculation does not mean that training finishes learning the hidden
+features before fitting the output layer. Training adjusts parameters in
+both layers together, using the same prediction error.</p>
+<p>Feature engineering and feature learning can therefore coexist. Here,
+you still supply contrast and edge density, extracted from the image
+using calculations you chose. The network learns transformations of
+those two features rather than learning directly from pixels. A learned
+feature need not have a human-readable name such as “scratch”: training
+rewards useful predictions without requiring each hidden feature to
+represent a concept we recognise.</p>
+<p>We will first examine how these two layers calculate a prediction.
+Then we will answer the central learning question: how can the final
+prediction error tell the hidden layer’s parameters which way to
+change?</p>
+</section><section aria-labelledby="forward-computation"><h2 id="forward-computation">Building the forward
+computation</h2>
+<h3 id="the-hidden-layer-constructs-learned-features">The hidden layer
+constructs learned features</h3>
+<p>The hidden layer begins with an operation you know from linear
+regression: multiply each input feature by a weight, add the results,
+and add a bias. A <strong>hidden unit</strong> performs one such
+calculation, then applies an activation function. Its output becomes one
+learned feature for the output layer.</p>
+<p>Represent one observation by a column vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>
+containing its
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+input features. In our inspection task,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">d=2</annotation></semantics></math>,
+with contrast in the first entry and edge density in the second. Suppose
+the hidden layer contains
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+units. Each unit needs
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+weights, one for each input feature, and one bias.</p>
+<p>We collect the hidden weights into a matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>1</mn></msub><annotation encoding="application/x-tex">W_1</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+rows and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+columns. <strong>Row
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+contains the weights for hidden unit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.</strong>
+The vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
+contains the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+biases. The subscript 1 identifies the hidden layer; later,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>2</mn></msub><annotation encoding="application/x-tex">W_2</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>2</mn></msub><annotation encoding="application/x-tex">b_2</annotation></semantics></math>
+will hold the output layer’s parameters. These symbols identify
+parameter arrays, not complete layers.</p>
+<p>Matrix multiplication calculates all
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+weighted sums at once. Call the resulting column vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo>,</mo><mspace width="2.0em"></mspace><mi>x</mi><mo>∈</mo><msup><mi>ℝ</mi><mi>d</mi></msup><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>W</mi><mn>1</mn></msub><mo>∈</mo><msup><mi>ℝ</mi><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow></msup><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><mn>1</mn></msub><mo>∈</mo><msup><mi>ℝ</mi><mi>m</mi></msup><mi>.</mi></mrow><annotation encoding="application/x-tex">
 z=W_1x+b_1,
 \qquad x\in\mathbb{R}^{d},\quad W_1\in\mathbb{R}^{m\times d},\quad b_1\in\mathbb{R}^{m}.
-</annotation></semantics></math></span></div>
-<p>The notation <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi mathvariant="double-struck">R</mi><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow></msup></mrow><annotation encoding="application/x-tex">\mathbb{R}^{m\times d}</annotation></semantics></math></span> means a matrix of real numbers with <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span> rows and <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span> columns. Multiplying it by the <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span> inputs produces <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span> values. To see what one row does, write the <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi></mrow><annotation encoding="application/x-tex">i</annotation></semantics></math></span>th measurement separately:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>d</mi></munderover><mo stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo stretchy="false">)</mo><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>x</mi><mi>j</mi></msub><mo>+</mo><mo stretchy="false">(</mo><msub><mi>b</mi><mn>1</mn></msub><msub><mo stretchy="false">)</mo><mi>i</mi></msub><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The notation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>ℝ</mi><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow></msup><annotation encoding="application/x-tex">\mathbb{R}^{m\times d}</annotation></semantics></math>
+means a matrix of real numbers with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+rows and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+columns. We treat
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
+as column vectors, with shapes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">d\times1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">m\times1</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">m\times1</annotation></semantics></math>.
+To see how the matrix equation produces one unit’s weighted sum, write
+its
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>th
+entry separately:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>d</mi></munderover><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>x</mi><mi>j</mi></msub><mo>+</mo><mo form="prefix" stretchy="false">(</mo><msub><mi>b</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mi>i</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 z_i=\sum_{j=1}^{d}(W_1)_{ij}x_j+(b_1)_i.
-</annotation></semantics></math></span></div>
-<p>Weights control sensitivity to inputs; the bias shifts the measurement's offset. This is an <strong>affine</strong> transformation: a linear transformation plus an offset. It need not pass through the origin.</p>
-<p>Next, decide which measurements will contribute to the next stage. We will use the <strong>rectified linear unit (ReLU)</strong>, which replaces a negative value with zero and leaves a positive value unchanged. Apply the rule separately to every component of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi></mrow><annotation encoding="application/x-tex">z</annotation></semantics></math></span> to obtain the hidden vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi></mrow><annotation encoding="application/x-tex">h</annotation></semantics></math></span>:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub><mo>=</mo><mi mathvariant="normal">ReLU</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>z</mi><mi>i</mi></msub><mo stretchy="false">)</mo><mo>=</mo><mi>max</mi><mo>⁡</mo><mo stretchy="false">(</mo><mn>0</mn><mo separator="true">,</mo><msub><mi>z</mi><mi>i</mi></msub><mo stretchy="false">)</mo><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>Here,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>j</mi></msub><annotation encoding="application/x-tex">x_j</annotation></semantics></math>
+is input feature
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow><annotation encoding="application/x-tex">(W_1)_{ij}</annotation></semantics></math>
+is the weight connecting that feature to unit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.
+The summation adds the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+weighted inputs;
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>b</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">(b_1)_i</annotation></semantics></math>
+then adds that unit’s bias. The bias allows a nonzero result even when
+all inputs are zero. A weighted sum plus a bias is called an
+<strong>affine transformation</strong>.</p>
+<p>If we passed these weighted sums directly to another linear
+predictor, the combined model would still be linear regression on the
+original inputs. We will show why shortly. To allow a more flexible
+relationship, apply an <strong>activation function</strong>, a rule that
+transforms each weighted sum. We use the <strong>rectified linear unit
+(ReLU)</strong>: it outputs zero when its input is zero or negative, and
+leaves a positive input unchanged. Applying ReLU separately to each
+entry of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+produces the learned features in a column vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math>:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mn>0</mn><mo>,</mo><msub><mi>z</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
 h_i=\operatorname{ReLU}(z_i)=\max(0,z_i).
-</annotation></semantics></math></span></div>
-<p>The values in <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi></mrow><annotation encoding="application/x-tex">z</annotation></semantics></math></span> are called <strong>preactivations</strong> because they come before the activation function. The values in <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi></mrow><annotation encoding="application/x-tex">h</annotation></semantics></math></span> are the resulting activations. A subscript, such as <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">h_i</annotation></semantics></math></span>, selects one component. The layer is “hidden” because the training data supplies a target for the final output, not a target value for each of these intermediate responses.</p>
-<p>To predict one numerical score, take a weighted sum of the hidden activations and add an output bias. Denote the prediction by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover accent="true"><mi>y</mi><mo>^</mo></mover></mrow><annotation encoding="application/x-tex">\hat y</annotation></semantics></math></span>, the output weights by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">W_2</annotation></semantics></math></span>, and the output bias by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>b</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">b_2</annotation></semantics></math></span>:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><mi>y</mi><mo>^</mo></mover><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mi>h</mi><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mo separator="true">,</mo><mspace width="2em"></mspace><msub><mi>W</mi><mn>2</mn></msub><mo>∈</mo><msup><mi mathvariant="double-struck">R</mi><mrow><mn>1</mn><mo>×</mo><mi>m</mi></mrow></msup><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>b</mi><mn>2</mn></msub><mo>∈</mo><mi mathvariant="double-struck">R</mi><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The values in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+are called <strong>preactivations</strong> because they come before the
+activation function. The values in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math>
+are called <strong>activations</strong>: these are the hidden layer’s
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+learned feature values for this observation. For example, one unit could
+combine contrast and edge density and produce zero until that
+combination exceeds a threshold. Training adjusts the weights and bias,
+changing which input combinations produce a positive response. The layer
+is “hidden” because the training data supplies a target for the final
+output, not a target for each hidden feature.</p>
+<p>To predict one numerical score, take a weighted sum of the hidden
+activations and add an output bias. Denote the prediction by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>y</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat y</annotation></semantics></math>,
+the output weights by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>2</mn></msub><annotation encoding="application/x-tex">W_2</annotation></semantics></math>,
+and the output bias by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>2</mn></msub><annotation encoding="application/x-tex">b_2</annotation></semantics></math>:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mi>h</mi><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>W</mi><mn>2</mn></msub><mo>∈</mo><msup><mi>ℝ</mi><mrow><mn>1</mn><mo>×</mo><mi>m</mi></mrow></msup><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><mn>2</mn></msub><mo>∈</mo><mi>ℝ</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \hat y=W_2h+b_2,
 \qquad W_2\in\mathbb{R}^{1\times m},\quad b_2\in\mathbb{R}.
-</annotation></semantics></math></span></div>
-<p>The two transformations, with ReLU between them, form a <strong>multilayer perceptron (MLP)</strong> with one hidden layer. The layers are called <strong>dense</strong> because each unit can use every input from the previous stage. We leave the output affine so that the prediction can take any real value, as appropriate for the unrestricted regression score used here.<sup><a href="#ref-2" aria-label="Reference 2">2</a></sup></p>
-<h3>Why the nonlinearity changes what can be represented</h3>
-<p>It may seem that stacking weighted sums already gives you a more flexible predictor. To check that idea, remove ReLU. The hidden vector then equals the first affine transformation, so you can substitute that expression into the output equation:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><mi>y</mi><mo>^</mo></mover><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mo stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mo>=</mo><mo stretchy="false">(</mo><msub><mi>W</mi><mn>2</mn></msub><msub><mi>W</mi><mn>1</mn></msub><mo stretchy="false">)</mo><mi>x</mi><mo>+</mo><mo stretchy="false">(</mo><msub><mi>W</mi><mn>2</mn></msub><msub><mi>b</mi><mn>1</mn></msub><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mo stretchy="false">)</mo><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The output weight matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>2</mn></msub><annotation encoding="application/x-tex">W_2</annotation></semantics></math>
+has one row because there is one predicted score, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+columns because it receives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+hidden features. We leave this output affine so that the prediction can
+take any real value, as appropriate for the unrestricted regression
+score used here.</p>
+<p>The full computation is therefore
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>→</mo><mi>z</mi><mo>→</mo><mi>h</mi><mo>→</mo><mover><mi>y</mi><mo accent="true">̂</mo></mover></mrow><annotation encoding="application/x-tex">x\rightarrow z\rightarrow h\rightarrow\hat y</annotation></semantics></math>:
+the hidden layer computes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi><mo>=</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">h=\operatorname{ReLU}(W_1x+b_1)</annotation></semantics></math>,
+and the output layer computes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mi>h</mi><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\hat y=W_2h+b_2</annotation></semantics></math>.
+This network is a <strong>multilayer perceptron (MLP)</strong>. Both
+layers are <strong>dense</strong>, meaning that each unit has a weight
+for every input from the preceding layer.<a class="footnote-ref" href="#ref-2" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
+<h3 id="why-the-nonlinearity-changes-what-can-be-represented">Why the
+nonlinearity changes what can be represented</h3>
+<p>It may seem that stacking weighted sums already gives you a more
+flexible predictor. To check that idea, remove ReLU. The hidden vector
+then equals the first affine transformation, so you can substitute that
+expression into the output equation:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo form="postfix" stretchy="false">)</mo><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mo>=</mo><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>2</mn></msub><msub><mi>W</mi><mn>1</mn></msub><mo form="postfix" stretchy="false">)</mo><mi>x</mi><mo>+</mo><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>2</mn></msub><msub><mi>b</mi><mn>1</mn></msub><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mo form="postfix" stretchy="false">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \hat y=W_2(W_1x+b_1)+b_2
        =(W_2W_1)x+(W_2b_1+b_2).
-</annotation></semantics></math></span></div>
-<p>The product <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>2</mn></msub><msub><mi>W</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">W_2W_1</annotation></semantics></math></span> acts as a new weight matrix, and <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>2</mn></msub><msub><mi>b</mi><mn>1</mn></msub><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">W_2b_1+b_2</annotation></semantics></math></span> acts as a new bias. The whole network therefore reduces to one affine transformation. There are more adjustable numbers, but the prediction still has a constant slope with respect to each input. Adding affine layers alone does not remove the restriction of the original linear regression model.<sup><a href="#ref-2" aria-label="Reference 2">2</a></sup></p>
-<p>ReLU changes that result because a unit's contribution now depends on whether its preactivation is positive. The boundary <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">z_i=0</annotation></semantics></math></span> separates the inputs that activate unit <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>i</mi></mrow><annotation encoding="application/x-tex">i</annotation></semantics></math></span> from those that do not. When an input crosses a boundary, the network can change its slope. The resulting predictor is <strong>piecewise affine</strong>: it is affine within a region where the same units remain active, but can have different slopes in another region.</p>
-<p>Thus a hidden unit is more than a weighted sum: it is a weighted sum with input-dependent participation. Its boundary can move during training because both its weights and bias change.</p>
-<h3>Shapes describe what the operations mean</h3>
-<p>A <strong>tensor</strong>, in the programming sense used here, is a multidimensional array. Its shape tells you the size of each axis. A vector of two descriptors has shape <code>(2,)</code>; a table of ten examples with two descriptors each has shape <code>(10, 2)</code>. Libraries may call the number of axes the tensor's rank. That usage is different from matrix rank in linear algebra.</p>
-<p>During training, you usually process a <strong>batch</strong>, a group of examples evaluated together. Let <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span> be its size and put each example in a row of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi></mrow><annotation encoding="application/x-tex">X</annotation></semantics></math></span>. Earlier, one example was a column vector, so the matrix multiplication must now be written in the opposite orientation. The superscript <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi></mrow><annotation encoding="application/x-tex">T</annotation></semantics></math></span> denotes a transpose, which exchanges a matrix's rows and columns:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>X</mi><msubsup><mi>W</mi><mn>1</mn><mi>T</mi></msubsup><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo separator="true">,</mo><mspace width="2em"></mspace><mi>H</mi><mo>=</mo><mi mathvariant="normal">ReLU</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>Z</mi><mo stretchy="false">)</mo><mo separator="true">,</mo><mspace width="2em"></mspace><mover accent="true"><mi>Y</mi><mo>^</mo></mover><mo>=</mo><mi>H</mi><msubsup><mi>W</mi><mn>2</mn><mi>T</mi></msubsup><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The product
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>2</mn></msub><msub><mi>W</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">W_2W_1</annotation></semantics></math>
+acts as a new weight matrix, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>2</mn></msub><msub><mi>b</mi><mn>1</mn></msub><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">W_2b_1+b_2</annotation></semantics></math>
+acts as a new bias. The prediction is still a weighted sum of the
+original input features plus a bias. For the inspection task, contrast
+still changes the prediction by the same amount at every value of edge
+density. Stacking affine layers has not allowed the model to express a
+feature interaction.<a class="footnote-ref" href="#ref-3" id="fnref3" role="doc-noteref"><sup>3</sup></a></p>
+<p>ReLU allows the prediction’s sensitivity to an input feature to
+depend on the other inputs. For instance, a hidden unit could compute
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mn>0</mn><mo>,</mo><mi>c</mi><mo>+</mo><mi>e</mi><mo>−</mo><mn>3</mn><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">h_i=\max(0,c+e-3)</annotation></semantics></math>.
+At edge density
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">e=0</annotation></semantics></math>,
+increasing contrast from 1 to 2 leaves that unit’s output at zero. At
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi><mo>=</mo><mn>3</mn></mrow><annotation encoding="application/x-tex">e=3</annotation></semantics></math>,
+the same contrast increase changes its output from 1 to 2. The response
+to contrast therefore depends on edge density. This is an illustrative
+feature, not a fitted inspection result.</p>
+<p>For this unit, the line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>+</mo><mi>e</mi><mo>−</mo><mn>3</mn><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">c+e-3=0</annotation></semantics></math>
+separates input combinations that produce zero from those that produce a
+positive value. We call it an <strong>activation boundary</strong>. More
+generally, unit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+has a boundary where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">z_i=0</annotation></semantics></math>.
+With two input features and nonzero weights, this boundary is a line;
+changing the weights can rotate it, and changing the bias shifts it.
+Training can therefore change which combinations of inputs activate the
+unit. This line describes one hidden unit’s response, not a final
+classification decision.</p>
+<p>Within a region where the same units remain active, each ReLU either
+passes through its weighted sum or outputs zero. The full prediction is
+affine within that region. Crossing an activation boundary can change
+which units contribute and hence change the prediction’s slope. This is
+why a ReLU network is called <strong>piecewise affine</strong>:
+different input regions can use different affine relationships. It can
+approximate nonlinear relationships, but a finite ReLU network does not
+exactly reproduce every nonlinear function, such as a product, across a
+continuous input range.</p>
+<h3 id="shapes-describe-what-the-operations-mean">Shapes describe what
+the operations mean</h3>
+<p>So far, we have calculated a prediction for one observation. During
+training, we often calculate predictions for several observations
+together. Such a group is called a <strong>batch</strong>. To follow
+that calculation, we need to specify how the observations and their
+features are arranged.</p>
+<p>A batch contains
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
+observations, each with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+input features. The number
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
+is the <strong>batch size</strong>. Arrange the observations as rows of
+a matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>:
+entry
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>X</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><annotation encoding="application/x-tex">X_{ij}</annotation></semantics></math>
+contains feature
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>
+of observation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.
+Thus
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+has
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
+rows and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+columns. Ten observations with two features each give a matrix of shape
+<code>(10, 2)</code>.</p>
+<p>Numerical software, such as PyTorch, stores these values in arrays
+called <strong>tensors</strong>. A tensor’s <strong>shape</strong> lists
+the size of each axis. For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>,
+the first axis indexes observations and the second indexes input
+features. A matrix is stored as a two-axis tensor. A mathematical vector
+can be stored either as a one-axis array, such as <code>(d,)</code>, or
+with an explicit row or column orientation. Our earlier column vector
+uses shape <code>(d, 1)</code>, whereas a row vector uses
+<code>(1, d)</code>. We will keep the observation and feature axes
+explicit in the batch calculation.</p>
+<p>Each row of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+is the transpose of the single-observation column vector used earlier.
+The superscript
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>T</mi><annotation encoding="application/x-tex">T</annotation></semantics></math>
+denotes a <strong>transpose</strong>, which exchanges rows and columns.
+Consequently, the row form of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">z=W_1x+b_1</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>z</mi><mi>T</mi></msup><mo>=</mo><msup><mi>x</mi><mi>T</mi></msup><msubsup><mi>W</mi><mn>1</mn><mi>T</mi></msubsup><mo>+</mo><msubsup><mi>b</mi><mn>1</mn><mi>T</mi></msubsup></mrow><annotation encoding="application/x-tex">z^T=x^TW_1^T+b_1^T</annotation></semantics></math>.
+Applying that same calculation to every observation gives the batch
+equations below. Uppercase
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
+contain the preactivations and activations for all observations;
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>Y</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat Y</annotation></semantics></math>
+contains their predictions.</p>
+<p>For these software-style batch equations, we store the same hidden
+biases
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
+as a one-axis array of shape <code>(m,)</code>, rather than an explicit
+column vector. Adding
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
+below means adding those biases to each observation’s row. This changes
+their storage convention, not their values or their role in the
+model:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>X</mi><msubsup><mi>W</mi><mn>1</mn><mi>T</mi></msubsup><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo>,</mo><mspace width="2.0em"></mspace><mi>H</mi><mo>=</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mi>Z</mi><mo form="postfix" stretchy="false">)</mo><mo>,</mo><mspace width="2.0em"></mspace><mover><mi>Y</mi><mo accent="true">̂</mo></mover><mo>=</mo><mi>H</mi><msubsup><mi>W</mi><mn>2</mn><mi>T</mi></msubsup><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 Z=XW_1^T+b_1,\qquad H=\operatorname{ReLU}(Z),\qquad
 \hat Y=HW_2^T+b_2.
-</annotation></semantics></math></span></div>
-<div class="table-scroll" tabindex="0" role="region" aria-label="Lesson table; scroll horizontally if needed"><table>
+</annotation></semantics></math></div>
+<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<colgroup>
+<col style="width: 33%"/>
+<col style="width: 33%"/>
+<col style="width: 33%"/>
+</colgroup>
 <thead>
 <tr>
 <th>Quantity</th>
@@ -97,39 +391,41 @@ Z=XW_1^T+b_1,\qquad H=\operatorname{ReLU}(Z),\qquad
 <th>Meaning</th>
 </tr>
 </thead>
-<tbody><tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi></mrow><annotation encoding="application/x-tex">X</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">B\times d</annotation></semantics></math></span></td>
-<td>Input examples</td>
+<tbody>
+<tr>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">B\times d</annotation></semantics></math></td>
+<td>One observation per row; one input feature per column</td>
 </tr>
 <tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">W_1</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">m\times d</annotation></semantics></math></span></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>1</mn></msub><annotation encoding="application/x-tex">W_1</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">m\times d</annotation></semantics></math></td>
 <td>Hidden weights</td>
 </tr>
 <tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>b</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">b_1</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span></td>
-<td>Hidden biases</td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mi>m</mi><mo>,</mo><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(m,)</annotation></semantics></math>
+in software</td>
+<td>One bias per hidden unit, reused for every observation</td>
 </tr>
 <tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo separator="true">,</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">Z,H</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mi>m</mi></mrow><annotation encoding="application/x-tex">B\times m</annotation></semantics></math></span></td>
-<td>Intermediate values</td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>,</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">Z,H</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mi>m</mi></mrow><annotation encoding="application/x-tex">B\times m</annotation></semantics></math></td>
+<td>One observation per row; one hidden unit per column</td>
 </tr>
 <tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">W_2</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>×</mo><mi>m</mi></mrow><annotation encoding="application/x-tex">1\times m</annotation></semantics></math></span></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>2</mn></msub><annotation encoding="application/x-tex">W_2</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>×</mo><mi>m</mi></mrow><annotation encoding="application/x-tex">1\times m</annotation></semantics></math></td>
 <td>Output weights</td>
 </tr>
 <tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover accent="true"><mi>Y</mi><mo>^</mo></mover></mrow><annotation encoding="application/x-tex">\hat Y</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B\times1</annotation></semantics></math></span></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>Y</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat Y</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B\times1</annotation></semantics></math></td>
 <td>Predictions</td>
 </tr>
 <tr>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Y</mi></mrow><annotation encoding="application/x-tex">Y</annotation></semantics></math></span></td>
-<td><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B\times1</annotation></semantics></math></span></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math></td>
+<td><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B\times1</annotation></semantics></math></td>
 <td>Targets</td>
 </tr>
 <tr>
@@ -137,128 +433,379 @@ Z=XW_1^T+b_1,\qquad H=\operatorname{ReLU}(Z),\qquad
 <td>Scalar</td>
 <td>Training objective for batch</td>
 </tr>
-</tbody></table></div>
-<p>The uppercase letters <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi></mrow><annotation encoding="application/x-tex">Z</annotation></semantics></math></span> and <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>H</mi></mrow><annotation encoding="application/x-tex">H</annotation></semantics></math></span> collect the preactivations and activations for the whole batch. The weights are shared across examples: batching changes how many examples you evaluate together, not which model each example uses.</p>
-<p>Adding <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>b</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">b_1</annotation></semantics></math></span> <strong>broadcasts</strong> the same bias vector to every row. Broadcasting is an array rule that lets an operation reuse values across compatible dimensions without writing out each copy. PyTorch's <code>Linear(d, m)</code> uses the weight orientation shown here and transforms the final feature axis.<sup><a href="#ref-3" aria-label="Reference 3">3</a></sup></p>
-<p>Broadcasting is convenient, but an operation can run successfully and still compare the wrong quantities. Subtracting predictions of shape <code>(B, 1)</code> from targets of shape <code>(B,)</code> can produce a <code>(B, B)</code> array, comparing every prediction with every target. Keep predictions and targets in the same <code>(B, 1)</code> shape when you want one error per example.</p>
-</section><section aria-labelledby="worked-example"><h2 id="worked-example">One network, traced through learning</h2>
-<p>We will now follow the inspection example through one prediction and one learning step. All numbers are <strong>synthetic</strong>. The two input descriptors have been scaled to dimensionless values, and the target is a defect-severity score in arbitrary units. The starting weights are chosen to make the arithmetic easy to follow; they were not fitted to real inspection data.</p>
-<h3>1. Forward pass: calculate the prediction</h3>
-<p>The input has values 1 and 2, and its target score is 2. The network has two hidden units and one output. Its starting weights and biases are:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>x</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>2</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><mi>y</mi><mo>=</mo><mn>2</mn><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>W</mi><mn>1</mn></msub><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>1</mn></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0.5</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0.5</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>b</mi><mn>1</mn></msub><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>W</mi><mn>2</mn></msub><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>2</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>b</mi><mn>2</mn></msub><mo>=</mo><mn>0.5.</mn></mrow><annotation encoding="application/x-tex">
+</tbody>
+</table></div>
+<p>The target matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Y</mi><annotation encoding="application/x-tex">Y</annotation></semantics></math>
+also has one row per observation and one column for the severity score.
+The same weights are used for every observation: batching evaluates one
+model on several observations together.</p>
+<p>In the batch equations, adding
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>1</mn></msub><annotation encoding="application/x-tex">b_1</annotation></semantics></math>
+means adding the same
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+biases to every row of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><msubsup><mi>W</mi><mn>1</mn><mi>T</mi></msubsup></mrow><annotation encoding="application/x-tex">XW_1^T</annotation></semantics></math>.
+PyTorch can store those biases as a one-axis array of shape
+<code>(m,)</code> and reuse it across all rows. This reuse is called
+<strong>broadcasting</strong>; it avoids explicitly constructing
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
+copies of the bias vector. The scalar output bias
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mn>2</mn></msub><annotation encoding="application/x-tex">b_2</annotation></semantics></math>
+is likewise added to every prediction. PyTorch’s
+<code>Linear(d, m)</code> stores weights in the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">m\times d</annotation></semantics></math>
+orientation used here and applies them to each observation’s
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+features.<a class="footnote-ref" href="#ref-4" id="fnref4" role="doc-noteref"><sup>4</sup></a></p>
+<p>Shapes also determine which values are compared when calculating
+errors. Predictions and targets should both have shape
+<code>(B, 1)</code> so each prediction is compared with its own target.
+If predictions have shape <code>(B, 1)</code> but targets have shape
+<code>(B,)</code>, broadcasting instead produces a <code>(B, B)</code>
+array: entry
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(i,j)</annotation></semantics></math>
+compares prediction
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+with target
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>.
+For a batch of ten observations, that gives 100 pairwise errors instead
+of ten matched errors. The subtraction can run without a software error
+while computing the wrong quantity.</p>
+</section><section aria-labelledby="worked-example"><h2 id="worked-example">One network, traced
+through learning</h2>
+<p>We have established what both layers calculate and how their arrays
+are arranged. We will now use specific numbers to trace one observation
+through a prediction, calculate how each parameter affects its error,
+and update the parameters. All numbers are <strong>synthetic</strong>.
+Contrast and edge density have been scaled to dimensionless values, and
+the target is a defect-severity score in arbitrary units. The starting
+weights are chosen to make the arithmetic easy to follow; they were not
+fitted to real inspection data.</p>
+<h3 id="forward-pass-calculate-the-prediction">1. Forward pass:
+calculate the prediction</h3>
+<p>For this observation, contrast is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mn>1</mn></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x_1=1</annotation></semantics></math>
+and edge density is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">x_2=2</annotation></semantics></math>.
+The known target score is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">y=2</annotation></semantics></math>.
+We use the two-layer network described above with hidden width
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">m=2</annotation></semantics></math>:
+two hidden units produce features for one output unit. Its starting
+weights and biases are:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>2</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><mi>y</mi><mo>=</mo><mn>2</mn><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>W</mi><mn>1</mn></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.5</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>0.5</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><mn>1</mn></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>W</mi><mn>2</mn></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>2</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><mn>2</mn></msub><mo>=</mo><mn>0.5</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 x=\begin{bmatrix}1\\2\end{bmatrix},\quad y=2,\quad
 W_1=\begin{bmatrix}1&amp;-1\\0.5&amp;0.5\end{bmatrix},\quad
 b_1=\begin{bmatrix}0\\0\end{bmatrix},\quad
 W_2=\begin{bmatrix}1&amp;2\end{bmatrix},\quad b_2=0.5.
-</annotation></semantics></math></span></div>
-<p>There are <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>×</mo><mn>2</mn><mo>+</mo><mn>2</mn><mo>+</mo><mn>1</mn><mo>×</mo><mn>2</mn><mo>+</mo><mn>1</mn><mo>=</mo><mn>9</mn></mrow><annotation encoding="application/x-tex">2\times2+2+1\times2+1=9</annotation></semantics></math></span> trainable scalar parameters. The input and target are data, not trainable parameters.</p>
-<p>First, calculate each hidden unit's weighted sum and then apply ReLU. The first row of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">W_1</annotation></semantics></math></span> subtracts the second input from the first; the second row takes half of each input:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>z</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mn>1</mn><mo stretchy="false">(</mo><mn>1</mn><mo stretchy="false">)</mo><mo>−</mo><mn>1</mn><mo stretchy="false">(</mo><mn>2</mn><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mn>0.5</mn><mo stretchy="false">(</mo><mn>1</mn><mo stretchy="false">)</mo><mo>+</mo><mn>0.5</mn><mo stretchy="false">(</mo><mn>2</mn><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>1</mn></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1.5</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="2em"></mspace><mi>h</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1.5</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>There are
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>×</mo><mn>2</mn><mo>+</mo><mn>2</mn><mo>+</mo><mn>1</mn><mo>×</mo><mn>2</mn><mo>+</mo><mn>1</mn><mo>=</mo><mn>9</mn></mrow><annotation encoding="application/x-tex">2\times2+2+1\times2+1=9</annotation></semantics></math>
+trainable scalar parameters. The input and target are data, not
+trainable parameters.</p>
+<p>First, calculate each hidden unit’s weighted sum and then apply ReLU.
+The first row of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>1</mn></msub><annotation encoding="application/x-tex">W_1</annotation></semantics></math>
+subtracts the second input from the first; the second row takes half of
+each input:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo form="postfix" stretchy="false">)</mo><mo>−</mo><mn>1</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.5</mn><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>0.5</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>1.5</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><mi>h</mi><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>1.5</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 z=\begin{bmatrix}1(1)-1(2)\\0.5(1)+0.5(2)\end{bmatrix}
  =\begin{bmatrix}-1\\1.5\end{bmatrix},\qquad
 h=\begin{bmatrix}0\\1.5\end{bmatrix}.
-</annotation></semantics></math></span></div>
-<p>The first preactivation is negative, so ReLU sets its activation to zero. The second is positive, so its activation stays at 1.5. The output layer combines those activations to predict the severity score:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mover accent="true"><mi>y</mi><mo>^</mo></mover><mo>=</mo><mn>1</mn><mo stretchy="false">(</mo><mn>0</mn><mo stretchy="false">)</mo><mo>+</mo><mn>2</mn><mo stretchy="false">(</mo><mn>1.5</mn><mo stretchy="false">)</mo><mo>+</mo><mn>0.5</mn><mo>=</mo><mn>3.5.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The first preactivation is negative, so ReLU sets its activation to
+zero. The second is positive, so its activation stays at 1.5. The output
+layer combines those activations to predict the severity score:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><mn>1</mn><mo form="prefix" stretchy="false">(</mo><mn>0</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>2</mn><mo form="prefix" stretchy="false">(</mo><mn>1.5</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>0.5</mn><mo>=</mo><mn>3.5</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \hat y=1(0)+2(1.5)+0.5=3.5.
-</annotation></semantics></math></span></div>
-<p>The prediction, 3.5, is above the target of 2. To train the model, we need a <strong>loss</strong>: a numerical measure of prediction error that the learning procedure will try to reduce. We will use half squared error, denoted by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi></mrow><annotation encoding="application/x-tex">L</annotation></semantics></math></span>:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>L</mi><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo stretchy="false">(</mo><mover accent="true"><mi>y</mi><mo>^</mo></mover><mo>−</mo><mi>y</mi><msup><mo stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo stretchy="false">(</mo><mn>3.5</mn><mo>−</mo><mn>2</mn><msup><mo stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><mn>1.125.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The prediction, 3.5, is above the target of 2. To train the model, we
+need a <strong>loss</strong>: a numerical measure of prediction error
+that the learning procedure will try to reduce. We will use half squared
+error, denoted by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo form="prefix" stretchy="false">(</mo><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>−</mo><mi>y</mi><msup><mo form="postfix" stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo form="prefix" stretchy="false">(</mo><mn>3.5</mn><mo>−</mo><mn>2</mn><msup><mo form="postfix" stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><mn>1.125</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 L=\frac12(\hat y-y)^2=\frac12(3.5-2)^2=1.125.
-</annotation></semantics></math></span></div>
-<p>This loss has squared-score units. The factor <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi mathvariant="normal">/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">1/2</annotation></semantics></math></span> simplifies its derivative; it is a convention, not part of the network architecture.</p>
-<figure><div class="diagram-scroll" tabindex="0" role="group" aria-label="Network computation diagram; scroll horizontally on small screens"><svg id="module_one_static_graph" width="100%" xmlns="http://www.w3.org/2000/svg" class="flowchart" style="max-width: 915.9375px;" viewBox="0 0 915.9375 222" role="graphics-document document" aria-roledescription="flowchart-v2" aria-describedby="chart-desc-module_one_static_graph" aria-labelledby="chart-title-module_one_static_graph"><title id="chart-title-module_one_static_graph">Small Network Forward Computation</title><desc id="chart-desc-module_one_static_graph">Two inputs pass through an affine transformation and ReLU to make two hidden values, then a scalar prediction. Comparing the prediction with the target produces the loss.</desc><style>#module_one_static_graph{font-family:Arial,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#module_one_static_graph .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#module_one_static_graph .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#module_one_static_graph .error-icon{fill:#552222;}#module_one_static_graph .error-text{fill:#552222;stroke:#552222;}#module_one_static_graph .edge-thickness-normal{stroke-width:1px;}#module_one_static_graph .edge-thickness-thick{stroke-width:3.5px;}#module_one_static_graph .edge-pattern-solid{stroke-dasharray:0;}#module_one_static_graph .edge-thickness-invisible{stroke-width:0;fill:none;}#module_one_static_graph .edge-pattern-dashed{stroke-dasharray:3;}#module_one_static_graph .edge-pattern-dotted{stroke-dasharray:2;}#module_one_static_graph .marker{fill:#666;stroke:#666;}#module_one_static_graph .marker.cross{stroke:#666;}#module_one_static_graph svg{font-family:Arial,sans-serif;font-size:16px;}#module_one_static_graph p{margin:0;}#module_one_static_graph .label{font-family:Arial,sans-serif;color:#000000;}#module_one_static_graph .cluster-label text{fill:#333;}#module_one_static_graph .cluster-label span{color:#333;}#module_one_static_graph .cluster-label span p{background-color:transparent;}#module_one_static_graph .label text,#module_one_static_graph span{fill:#000000;color:#000000;}#module_one_static_graph .node rect,#module_one_static_graph .node circle,#module_one_static_graph .node ellipse,#module_one_static_graph .node polygon,#module_one_static_graph .node path{fill:#eee;stroke:#999;stroke-width:1px;}#module_one_static_graph .rough-node .label text,#module_one_static_graph .node .label text,#module_one_static_graph .image-shape .label,#module_one_static_graph .icon-shape .label{text-anchor:middle;}#module_one_static_graph .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#module_one_static_graph .rough-node .label,#module_one_static_graph .node .label,#module_one_static_graph .image-shape .label,#module_one_static_graph .icon-shape .label{text-align:center;}#module_one_static_graph .node.clickable{cursor:pointer;}#module_one_static_graph .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#module_one_static_graph .arrowheadPath{fill:#333333;}#module_one_static_graph .edgePath .path{stroke:#666;stroke-width:2.0px;}#module_one_static_graph .flowchart-link{stroke:#666;fill:none;}#module_one_static_graph .edgeLabel{background-color:white;text-align:center;}#module_one_static_graph .edgeLabel p{background-color:white;}#module_one_static_graph .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#module_one_static_graph .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#module_one_static_graph .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#module_one_static_graph .cluster text{fill:#333;}#module_one_static_graph .cluster span{color:#333;}#module_one_static_graph div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Arial,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#module_one_static_graph .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#module_one_static_graph rect.text{fill:none;stroke-width:0;}#module_one_static_graph .icon-shape,#module_one_static_graph .image-shape{background-color:white;text-align:center;}#module_one_static_graph .icon-shape p,#module_one_static_graph .image-shape p{background-color:white;padding:2px;}#module_one_static_graph .icon-shape rect,#module_one_static_graph .image-shape rect{opacity:0.5;background-color:white;fill:white;}#module_one_static_graph .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#module_one_static_graph .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#module_one_static_graph :root{--mermaid-font-family:Arial,sans-serif;}</style><g><marker id="module_one_static_graph_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="module_one_static_graph_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="module_one_static_graph_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="module_one_static_graph_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="module_one_static_graph_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="module_one_static_graph_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path d="M116.031,47L120.198,47C124.365,47,132.698,47,140.365,47C148.031,47,155.031,47,158.531,47L162.031,47" id="L_input_x_preactivation_z_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_input_x_preactivation_z_0" data-points="W3sieCI6MTE2LjAzMTI1LCJ5Ijo0N30seyJ4IjoxNDEuMDMxMjUsInkiOjQ3fSx7IngiOjE2Ni4wMzEyNSwieSI6NDd9XQ==" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)"></path><path d="M280.281,47L284.448,47C288.615,47,296.948,47,304.615,47C312.281,47,319.281,47,322.781,47L326.281,47" id="L_preactivation_z_hidden_h_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_preactivation_z_hidden_h_0" data-points="W3sieCI6MjgwLjI4MTI1LCJ5Ijo0N30seyJ4IjozMDUuMjgxMjUsInkiOjQ3fSx7IngiOjMzMC4yODEyNSwieSI6NDd9XQ==" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)"></path><path d="M444.531,47L448.698,47C452.865,47,461.198,47,468.865,47C476.531,47,483.531,47,487.031,47L490.531,47" id="L_hidden_h_prediction_y_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_hidden_h_prediction_y_0" data-points="W3sieCI6NDQ0LjUzMTI1LCJ5Ijo0N30seyJ4Ijo0NjkuNTMxMjUsInkiOjQ3fSx7IngiOjQ5NC41MzEyNSwieSI6NDd9XQ==" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)"></path><path d="M668.984,47L673.151,47C677.318,47,685.651,47,697.008,50.852C708.366,54.704,722.747,62.407,729.938,66.259L737.129,70.111" id="L_prediction_y_loss_l_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_prediction_y_loss_l_0" data-points="W3sieCI6NjY4Ljk4NDM3NSwieSI6NDd9LHsieCI6NjkzLjk4NDM3NSwieSI6NDd9LHsieCI6NzQwLjY1NDkwNzIyNjU2MjUsInkiOjcyfV0=" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)"></path><path d="M640.219,175L649.18,175C658.141,175,676.063,175,692.214,171.148C708.366,167.296,722.747,159.593,729.938,155.741L737.129,151.889" id="L_target_y_loss_l_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_target_y_loss_l_0" data-points="W3sieCI6NjQwLjIxODc1LCJ5IjoxNzV9LHsieCI6NjkzLjk4NDM3NSwieSI6MTc1fSx7IngiOjc0MC42NTQ5MDcyMjY1NjI1LCJ5IjoxNTB9XQ==" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_input_x_preactivation_z_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_preactivation_z_hidden_h_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_hidden_h_prediction_y_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_prediction_y_loss_l_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_target_y_loss_l_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="flowchart-input_x-0" transform="translate(62.015625, 47)"><rect class="basic label-container" style="" x="-54.015625" y="-39" width="108.03125" height="78"></rect><g class="label" style="" transform="translate(-24.015625, -24)"><rect></rect><foreignObject width="48.03125" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Input x<br>[1, 2]</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-preactivation_z-1" transform="translate(223.15625, 47)"><rect class="basic label-container" style="" x="-57.125" y="-39" width="114.25" height="78"></rect><g class="label" style="" transform="translate(-27.125, -24)"><rect></rect><foreignObject width="54.25" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Affine z<br>[-1, 1.5]</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-hidden_h-3" transform="translate(387.40625, 47)"><rect class="basic label-container" style="" x="-57.125" y="-39" width="114.25" height="78"></rect><g class="label" style="" transform="translate(-27.125, -24)"><rect></rect><foreignObject width="54.25" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>ReLU h<br>[0, 1.5]</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-prediction_y-5" transform="translate(581.7578125, 47)"><rect class="basic label-container" style="" x="-87.2265625" y="-39" width="174.453125" height="78"></rect><g class="label" style="" transform="translate(-57.2265625, -24)"><rect></rect><foreignObject width="114.453125" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Affine prediction<br>3.5</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-loss_l-7" transform="translate(813.4609375, 111)"><rect class="basic label-container" style="" x="-94.4765625" y="-39" width="188.953125" height="78"></rect><g class="label" style="" transform="translate(-64.4765625, -24)"><rect></rect><foreignObject width="128.953125" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Half squared error<br>1.125</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-target_y-8" transform="translate(581.7578125, 175)"><rect class="basic label-container" style="" x="-58.4609375" y="-39" width="116.921875" height="78"></rect><g class="label" style="" transform="translate(-28.4609375, -24)"><rect></rect><foreignObject width="56.921875" height="48"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Target y<br>2</p></span></div></foreignObject></g></g></g></g></g></svg><svg class="diagram-narrow" viewBox="0 0 270 570" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="mobile-graph-title mobile-graph-desc"><title id="mobile-graph-title">Small network forward computation</title><desc id="mobile-graph-desc">Input one and two become preactivations minus one and one point five. ReLU produces zero and one point five. The output is three point five; comparing it with target two gives half squared error one point one two five.</desc><defs><marker id="mobile-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#54766e"></path></marker></defs><g fill="none" stroke="#54766e" stroke-width="2" marker-end="url(#mobile-arrow)"><path d="M135 88V120"></path><path d="M135 198V230"></path><path d="M135 308V340"></path><path d="M135 418V450"></path></g><g fill="#edf3ef" stroke="#97b4a9"><rect x="10" y="10" width="250" height="78" rx="5"></rect><rect x="10" y="120" width="250" height="78" rx="5"></rect><rect x="10" y="230" width="250" height="78" rx="5"></rect><rect x="10" y="340" width="250" height="78" rx="5"></rect><rect x="10" y="450" width="250" height="108" rx="5"></rect></g><g fill="#203c40" text-anchor="middle" font-family="Arial,sans-serif" font-size="17"><text x="135" y="41">Input x</text><text x="135" y="67">[1, 2]</text><text x="135" y="151">Affine z</text><text x="135" y="177">[−1, 1.5]</text><text x="135" y="261">ReLU h</text><text x="135" y="287">[0, 1.5]</text><text x="135" y="371">Affine prediction</text><text x="135" y="397">3.5</text><text x="135" y="481">Compare with target y = 2</text><text x="135" y="510">Half squared error</text><text x="135" y="538">1.125</text></g></svg></div><figcaption>Forward values for the worked example. The target enters the loss calculation; it is not an input to the predictor.</figcaption></figure>
-<p>The graph brings the forward calculations together. Follow the input through the hidden values to the predicted score, then to the loss. During learning, <strong>backpropagation</strong> follows these dependencies in reverse to calculate how sensitive the loss is to earlier values.<sup><a href="#ref-4" aria-label="Reference 4">4</a></sup></p>
-<h3>2. Backward pass: calculate sensitivities</h3>
-<p>We now need to decide how each weight and bias should change. For one parameter <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow><annotation encoding="application/x-tex">\theta</annotation></semantics></math></span>, the derivative of the loss tells you how the loss would change if you moved that parameter by a very small amount, keeping the others fixed. Write the proposed change as <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>θ</mi></mrow><annotation encoding="application/x-tex">\Delta\theta</annotation></semantics></math></span>, where the symbol <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi></mrow><annotation encoding="application/x-tex">\Delta</annotation></semantics></math></span> means “change in”:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>L</mi><mo stretchy="false">(</mo><mi>θ</mi><mo>+</mo><mi mathvariant="normal">Δ</mi><mi>θ</mi><mo stretchy="false">)</mo><mo>≈</mo><mi>L</mi><mo stretchy="false">(</mo><mi>θ</mi><mo stretchy="false">)</mo><mo>+</mo><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mi>θ</mi></mrow></mfrac><mi mathvariant="normal">Δ</mi><mi>θ</mi><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>This loss has squared-score units. The factor
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">1/2</annotation></semantics></math>
+simplifies its derivative; it is a convention, not part of the network
+architecture.</p>
+<figure><div aria-label="Network computation diagram; scroll horizontally on small screens" class="diagram-scroll" role="group" tabindex="0"><svg aria-describedby="chart-desc-module_one_static_graph" aria-labelledby="chart-title-module_one_static_graph" aria-roledescription="flowchart-v2" class="flowchart" id="module_one_static_graph" role="graphics-document document" style="max-width: 915.9375px;" viewBox="0 0 915.9375 222" width="100%" xmlns="http://www.w3.org/2000/svg"><title id="chart-title-module_one_static_graph">Small Network Forward Computation</title><desc id="chart-desc-module_one_static_graph">Two inputs pass through an affine transformation and ReLU to make two hidden values, then a scalar prediction. Comparing the prediction with the target produces the loss.</desc><style>#module_one_static_graph{font-family:Arial,sans-serif;font-size:16px;fill:#000000;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#module_one_static_graph .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#module_one_static_graph .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#module_one_static_graph .error-icon{fill:#552222;}#module_one_static_graph .error-text{fill:#552222;stroke:#552222;}#module_one_static_graph .edge-thickness-normal{stroke-width:1px;}#module_one_static_graph .edge-thickness-thick{stroke-width:3.5px;}#module_one_static_graph .edge-pattern-solid{stroke-dasharray:0;}#module_one_static_graph .edge-thickness-invisible{stroke-width:0;fill:none;}#module_one_static_graph .edge-pattern-dashed{stroke-dasharray:3;}#module_one_static_graph .edge-pattern-dotted{stroke-dasharray:2;}#module_one_static_graph .marker{fill:#666;stroke:#666;}#module_one_static_graph .marker.cross{stroke:#666;}#module_one_static_graph svg{font-family:Arial,sans-serif;font-size:16px;}#module_one_static_graph p{margin:0;}#module_one_static_graph .label{font-family:Arial,sans-serif;color:#000000;}#module_one_static_graph .cluster-label text{fill:#333;}#module_one_static_graph .cluster-label span{color:#333;}#module_one_static_graph .cluster-label span p{background-color:transparent;}#module_one_static_graph .label text,#module_one_static_graph span{fill:#000000;color:#000000;}#module_one_static_graph .node rect,#module_one_static_graph .node circle,#module_one_static_graph .node ellipse,#module_one_static_graph .node polygon,#module_one_static_graph .node path{fill:#eee;stroke:#999;stroke-width:1px;}#module_one_static_graph .rough-node .label text,#module_one_static_graph .node .label text,#module_one_static_graph .image-shape .label,#module_one_static_graph .icon-shape .label{text-anchor:middle;}#module_one_static_graph .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#module_one_static_graph .rough-node .label,#module_one_static_graph .node .label,#module_one_static_graph .image-shape .label,#module_one_static_graph .icon-shape .label{text-align:center;}#module_one_static_graph .node.clickable{cursor:pointer;}#module_one_static_graph .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#module_one_static_graph .arrowheadPath{fill:#333333;}#module_one_static_graph .edgePath .path{stroke:#666;stroke-width:2.0px;}#module_one_static_graph .flowchart-link{stroke:#666;fill:none;}#module_one_static_graph .edgeLabel{background-color:white;text-align:center;}#module_one_static_graph .edgeLabel p{background-color:white;}#module_one_static_graph .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#module_one_static_graph .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#module_one_static_graph .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#module_one_static_graph .cluster text{fill:#333;}#module_one_static_graph .cluster span{color:#333;}#module_one_static_graph div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Arial,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#module_one_static_graph .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#module_one_static_graph rect.text{fill:none;stroke-width:0;}#module_one_static_graph .icon-shape,#module_one_static_graph .image-shape{background-color:white;text-align:center;}#module_one_static_graph .icon-shape p,#module_one_static_graph .image-shape p{background-color:white;padding:2px;}#module_one_static_graph .icon-shape rect,#module_one_static_graph .image-shape rect{opacity:0.5;background-color:white;fill:white;}#module_one_static_graph .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#module_one_static_graph .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#module_one_static_graph :root{--mermaid-font-family:Arial,sans-serif;}</style><g><marker class="marker flowchart-v2" id="module_one_static_graph_flowchart-v2-pointEnd" markerheight="8" markerunits="userSpaceOnUse" markerwidth="8" orient="auto" refx="5" refy="5" viewBox="0 0 10 10"><path class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker class="marker flowchart-v2" id="module_one_static_graph_flowchart-v2-pointStart" markerheight="8" markerunits="userSpaceOnUse" markerwidth="8" orient="auto" refx="4.5" refy="5" viewBox="0 0 10 10"><path class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker class="marker flowchart-v2" id="module_one_static_graph_flowchart-v2-circleEnd" markerheight="11" markerunits="userSpaceOnUse" markerwidth="11" orient="auto" refx="11" refy="5" viewBox="0 0 10 10"><circle class="arrowMarkerPath" cx="5" cy="5" r="5" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker class="marker flowchart-v2" id="module_one_static_graph_flowchart-v2-circleStart" markerheight="11" markerunits="userSpaceOnUse" markerwidth="11" orient="auto" refx="-1" refy="5" viewBox="0 0 10 10"><circle class="arrowMarkerPath" cx="5" cy="5" r="5" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker class="marker cross flowchart-v2" id="module_one_static_graph_flowchart-v2-crossEnd" markerheight="11" markerunits="userSpaceOnUse" markerwidth="11" orient="auto" refx="12" refy="5.2" viewBox="0 0 11 11"><path class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker class="marker cross flowchart-v2" id="module_one_static_graph_flowchart-v2-crossStart" markerheight="11" markerunits="userSpaceOnUse" markerwidth="11" orient="auto" refx="-1" refy="5.2" viewBox="0 0 11 11"><path class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" d="M116.031,47L120.198,47C124.365,47,132.698,47,140.365,47C148.031,47,155.031,47,158.531,47L162.031,47" data-edge="true" data-et="edge" data-id="L_input_x_preactivation_z_0" data-points="W3sieCI6MTE2LjAzMTI1LCJ5Ijo0N30seyJ4IjoxNDEuMDMxMjUsInkiOjQ3fSx7IngiOjE2Ni4wMzEyNSwieSI6NDd9XQ==" id="L_input_x_preactivation_z_0" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)" style=";"></path><path class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" d="M280.281,47L284.448,47C288.615,47,296.948,47,304.615,47C312.281,47,319.281,47,322.781,47L326.281,47" data-edge="true" data-et="edge" data-id="L_preactivation_z_hidden_h_0" data-points="W3sieCI6MjgwLjI4MTI1LCJ5Ijo0N30seyJ4IjozMDUuMjgxMjUsInkiOjQ3fSx7IngiOjMzMC4yODEyNSwieSI6NDd9XQ==" id="L_preactivation_z_hidden_h_0" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)" style=";"></path><path class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" d="M444.531,47L448.698,47C452.865,47,461.198,47,468.865,47C476.531,47,483.531,47,487.031,47L490.531,47" data-edge="true" data-et="edge" data-id="L_hidden_h_prediction_y_0" data-points="W3sieCI6NDQ0LjUzMTI1LCJ5Ijo0N30seyJ4Ijo0NjkuNTMxMjUsInkiOjQ3fSx7IngiOjQ5NC41MzEyNSwieSI6NDd9XQ==" id="L_hidden_h_prediction_y_0" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)" style=";"></path><path class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" d="M668.984,47L673.151,47C677.318,47,685.651,47,697.008,50.852C708.366,54.704,722.747,62.407,729.938,66.259L737.129,70.111" data-edge="true" data-et="edge" data-id="L_prediction_y_loss_l_0" data-points="W3sieCI6NjY4Ljk4NDM3NSwieSI6NDd9LHsieCI6NjkzLjk4NDM3NSwieSI6NDd9LHsieCI6NzQwLjY1NDkwNzIyNjU2MjUsInkiOjcyfV0=" id="L_prediction_y_loss_l_0" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)" style=";"></path><path class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" d="M640.219,175L649.18,175C658.141,175,676.063,175,692.214,171.148C708.366,167.296,722.747,159.593,729.938,155.741L737.129,151.889" data-edge="true" data-et="edge" data-id="L_target_y_loss_l_0" data-points="W3sieCI6NjQwLjIxODc1LCJ5IjoxNzV9LHsieCI6NjkzLjk4NDM3NSwieSI6MTc1fSx7IngiOjc0MC42NTQ5MDcyMjY1NjI1LCJ5IjoxNTB9XQ==" id="L_target_y_loss_l_0" marker-end="url(#module_one_static_graph_flowchart-v2-pointEnd)" style=";"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_input_x_preactivation_z_0" transform="translate(0, 0)"><foreignobject height="0" width="0"><div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" data-id="L_preactivation_z_hidden_h_0" transform="translate(0, 0)"><foreignobject height="0" width="0"><div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" data-id="L_hidden_h_prediction_y_0" transform="translate(0, 0)"><foreignobject height="0" width="0"><div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" data-id="L_prediction_y_loss_l_0" transform="translate(0, 0)"><foreignobject height="0" width="0"><div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" data-id="L_target_y_loss_l_0" transform="translate(0, 0)"><foreignobject height="0" width="0"><div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="edgeLabel"></span></div></foreignobject></g></g></g><g class="nodes"><g class="node default" id="flowchart-input_x-0" transform="translate(62.015625, 47)"><rect class="basic label-container" height="78" style="" width="108.03125" x="-54.015625" y="-39"></rect><g class="label" style="" transform="translate(-24.015625, -24)"><rect></rect><foreignobject height="48" width="48.03125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Input x<br/>[1, 2]</p></span></div></foreignobject></g></g><g class="node default" id="flowchart-preactivation_z-1" transform="translate(223.15625, 47)"><rect class="basic label-container" height="78" style="" width="114.25" x="-57.125" y="-39"></rect><g class="label" style="" transform="translate(-27.125, -24)"><rect></rect><foreignobject height="48" width="54.25"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Affine z<br/>[-1, 1.5]</p></span></div></foreignobject></g></g><g class="node default" id="flowchart-hidden_h-3" transform="translate(387.40625, 47)"><rect class="basic label-container" height="78" style="" width="114.25" x="-57.125" y="-39"></rect><g class="label" style="" transform="translate(-27.125, -24)"><rect></rect><foreignobject height="48" width="54.25"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>ReLU h<br/>[0, 1.5]</p></span></div></foreignobject></g></g><g class="node default" id="flowchart-prediction_y-5" transform="translate(581.7578125, 47)"><rect class="basic label-container" height="78" style="" width="174.453125" x="-87.2265625" y="-39"></rect><g class="label" style="" transform="translate(-57.2265625, -24)"><rect></rect><foreignobject height="48" width="114.453125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Affine prediction<br/>3.5</p></span></div></foreignobject></g></g><g class="node default" id="flowchart-loss_l-7" transform="translate(813.4609375, 111)"><rect class="basic label-container" height="78" style="" width="188.953125" x="-94.4765625" y="-39"></rect><g class="label" style="" transform="translate(-64.4765625, -24)"><rect></rect><foreignobject height="48" width="128.953125"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Half squared error<br/>1.125</p></span></div></foreignobject></g></g><g class="node default" id="flowchart-target_y-8" transform="translate(581.7578125, 175)"><rect class="basic label-container" height="78" style="" width="116.921875" x="-58.4609375" y="-39"></rect><g class="label" style="" transform="translate(-28.4609375, -24)"><rect></rect><foreignobject height="48" width="56.921875"><div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" xmlns="http://www.w3.org/1999/xhtml"><span class="nodeLabel"><p>Target y<br/>2</p></span></div></foreignobject></g></g></g></g></g></svg><svg aria-labelledby="mobile-graph-title mobile-graph-desc" class="diagram-narrow" role="img" viewBox="0 0 270 570" xmlns="http://www.w3.org/2000/svg"><title id="mobile-graph-title">Small network forward computation</title><desc id="mobile-graph-desc">Input one and two become preactivations minus one and one point five. ReLU produces zero and one point five. The output is three point five; comparing it with target two gives half squared error one point one two five.</desc><defs><marker id="mobile-arrow" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="9" refy="5" viewBox="0 0 10 10"><path d="M0 0 L10 5 L0 10 Z" fill="#54766e"></path></marker></defs><g fill="none" marker-end="url(#mobile-arrow)" stroke="#54766e" stroke-width="2"><path d="M135 88V120"></path><path d="M135 198V230"></path><path d="M135 308V340"></path><path d="M135 418V450"></path></g><g fill="#edf3ef" stroke="#97b4a9"><rect height="78" rx="5" width="250" x="10" y="10"></rect><rect height="78" rx="5" width="250" x="10" y="120"></rect><rect height="78" rx="5" width="250" x="10" y="230"></rect><rect height="78" rx="5" width="250" x="10" y="340"></rect><rect height="108" rx="5" width="250" x="10" y="450"></rect></g><g fill="#203c40" font-family="Arial,sans-serif" font-size="17" text-anchor="middle"><text x="135" y="41">Input x</text><text x="135" y="67">[1, 2]</text><text x="135" y="151">Affine z</text><text x="135" y="177">[−1, 1.5]</text><text x="135" y="261">ReLU h</text><text x="135" y="287">[0, 1.5]</text><text x="135" y="371">Affine prediction</text><text x="135" y="397">3.5</text><text x="135" y="481">Compare with target y = 2</text><text x="135" y="510">Half squared error</text><text x="135" y="538">1.125</text></g></svg></div><figcaption>Forward values for the worked example. The target enters the loss calculation; it is not an input to the predictor.</figcaption></figure>
+<p>The arrows show which values each calculation uses: the prediction
+depends on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math>,
+which depends on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>,
+which depends on the input and hidden parameters. To improve the
+prediction, we need to determine how changing each parameter changes the
+final loss. <strong>Backpropagation</strong> calculates these
+sensitivities by following the dependencies in reverse, starting at the
+loss.<a class="footnote-ref" href="#ref-5" id="fnref5" role="doc-noteref"><sup>5</sup></a></p>
+<h3 id="backward-pass-calculate-sensitivities">2. Backward pass:
+calculate sensitivities</h3>
+<p>For one parameter
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math>,
+the derivative
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><mi>L</mi><mi>/</mi><mi>∂</mi><mi>θ</mi></mrow><annotation encoding="application/x-tex">\partial L/\partial\theta</annotation></semantics></math>
+tells you how the loss changes for a very small change in that
+parameter, keeping all other parameters fixed. The
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>∂</mi><annotation encoding="application/x-tex">\partial</annotation></semantics></math>
+notation indicates that we are varying one quantity in a calculation
+that depends on several. Write the proposed parameter change as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>θ</mi></mrow><annotation encoding="application/x-tex">\Delta\theta</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Δ</mi><annotation encoding="application/x-tex">\Delta</annotation></semantics></math>
+means “change in”:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo form="prefix" stretchy="false">(</mo><mi>θ</mi><mo>+</mo><mi mathvariant="normal">Δ</mi><mi>θ</mi><mo form="postfix" stretchy="false">)</mo><mo>≈</mo><mi>L</mi><mo form="prefix" stretchy="false">(</mo><mi>θ</mi><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mi>θ</mi></mrow></mfrac><mi mathvariant="normal">Δ</mi><mi>θ</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
 L(\theta+\Delta\theta)\approx L(\theta)
  +\frac{\partial L}{\partial\theta}\Delta\theta,
-</annotation></semantics></math></span></div>
-<p>The approximation says: start with the current loss, then add the derivative multiplied by the proposed change. A positive derivative means that increasing the parameter slightly will increase the loss locally, so a small decrease is a plausible way to reduce it. The derivative describes behaviour near the current parameter value; it is not a general importance score.</p>
-<p>Start with the last operation. For half squared error, differentiating with respect to the prediction leaves the prediction error itself. We will call this output sensitivity <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi></mrow><annotation encoding="application/x-tex">\delta</annotation></semantics></math></span>:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>δ</mi><mo>=</mo><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mover accent="true"><mi>y</mi><mo>^</mo></mover></mrow></mfrac><mo>=</mo><mover accent="true"><mi>y</mi><mo>^</mo></mover><mo>−</mo><mi>y</mi><mo>=</mo><mn>1.5.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The approximation says: start with the current loss, then add the
+derivative multiplied by the proposed change. A positive derivative
+means that increasing the parameter slightly will increase the loss
+locally, so a small decrease is a plausible way to reduce it. The
+derivative describes behaviour near the current parameter value; it is
+not a general importance score.</p>
+<p>Start with the last operation. For half squared error,
+differentiating with respect to the prediction leaves the prediction
+error itself. We will call this output sensitivity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>δ</mi><annotation encoding="application/x-tex">\delta</annotation></semantics></math>:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi><mo>=</mo><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mover><mi>y</mi><mo accent="true">̂</mo></mover></mrow></mfrac><mo>=</mo><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>−</mo><mi>y</mi><mo>=</mo><mn>1.5</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \delta=\frac{\partial L}{\partial\hat y}=\hat y-y=1.5.
-</annotation></semantics></math></span></div>
-<p>Because <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi></mrow><annotation encoding="application/x-tex">\delta</annotation></semantics></math></span> is positive, lowering the prediction slightly would lower the loss. To work out how an output weight can do that, use the fact that a weight multiplies its hidden activation. A small change in the second output weight therefore changes the prediction by 1.5 times that change. Multiplying by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi></mrow><annotation encoding="application/x-tex">\delta</annotation></semantics></math></span> gives a loss sensitivity of 2.25. The first output weight multiplies a zero activation, so its sensitivity is zero:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><msub><mi>W</mi><mn>2</mn></msub></mrow></mfrac><mo>=</mo><mi>δ</mi><msup><mi>h</mi><mi>T</mi></msup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>2.25</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="2em"></mspace><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><msub><mi>b</mi><mn>2</mn></msub></mrow></mfrac><mo>=</mo><mi>δ</mi><mo>=</mo><mn>1.5.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>We will also calculate derivatives with respect to whole arrays of
+weights or intermediate values. We collect these derivatives into an
+array called a <strong>gradient</strong>, with the same shape as the
+original array. For example, each entry of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><mi>L</mi><mi>/</mi><mi>∂</mi><msub><mi>W</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\partial L/\partial W_2</annotation></semantics></math>
+is the loss derivative with respect to the corresponding output weight.
+The same convention applies to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><mi>L</mi><mi>/</mi><mi>∂</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">\partial L/\partial h</annotation></semantics></math>:
+each entry describes sensitivity to one hidden activation.</p>
+<p>Because
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>δ</mi><annotation encoding="application/x-tex">\delta</annotation></semantics></math>
+is positive, lowering the prediction slightly would lower the loss. To
+work out how an output weight can do that, use the fact that a weight
+multiplies its hidden activation. A small change in the second output
+weight therefore changes the prediction by 1.5 times that change.
+Multiplying by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>δ</mi><annotation encoding="application/x-tex">\delta</annotation></semantics></math>
+gives a loss sensitivity of 2.25. The first output weight multiplies a
+zero activation, so its sensitivity is zero:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><msub><mi>W</mi><mn>2</mn></msub></mrow></mfrac><mo>=</mo><mi>δ</mi><msup><mi>h</mi><mi>T</mi></msup><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>2.25</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><msub><mi>b</mi><mn>2</mn></msub></mrow></mfrac><mo>=</mo><mi>δ</mi><mo>=</mo><mn>1.5</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \frac{\partial L}{\partial W_2}=\delta h^T
  =\begin{bmatrix}0&amp;2.25\end{bmatrix},\qquad
 \frac{\partial L}{\partial b_2}=\delta=1.5.
-</annotation></semantics></math></span></div>
-<p>Changing the output bias changes the prediction by the same amount, which is why its derivative is just <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi></mrow><annotation encoding="application/x-tex">\delta</annotation></semantics></math></span>. To continue into the hidden layer, ask how changing each hidden activation would change the prediction. Its output weight supplies that sensitivity, so multiplying the output weights by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>δ</mi></mrow><annotation encoding="application/x-tex">\delta</annotation></semantics></math></span> gives:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mi>h</mi></mrow></mfrac><mo>=</mo><msubsup><mi>W</mi><mn>2</mn><mi>T</mi></msubsup><mi>δ</mi><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1.5</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>3</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>Changing the output bias changes the prediction by the same amount,
+which is why its derivative is just
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>δ</mi><annotation encoding="application/x-tex">\delta</annotation></semantics></math>.
+To continue into the hidden layer, ask how changing each hidden
+activation would change the prediction. Its output weight supplies that
+sensitivity, so multiplying the output weights by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>δ</mi><annotation encoding="application/x-tex">\delta</annotation></semantics></math>
+gives:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mi>h</mi></mrow></mfrac><mo>=</mo><msubsup><mi>W</mi><mn>2</mn><mi>T</mi></msubsup><mi>δ</mi><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1.5</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>3</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \frac{\partial L}{\partial h}=W_2^T\delta
  =\begin{bmatrix}1.5\\3\end{bmatrix}.
-</annotation></semantics></math></span></div>
-<p>Next, pass those sensitivities through ReLU. For a negative preactivation, a small change leaves the activation at zero, so the derivative is <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span>. For a positive preactivation, ReLU passes the change through unchanged, so the derivative is <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span>. At zero, ReLU has a corner and no unique derivative; an implementation must choose a convention. Neither preactivation here is zero.</p>
-<p>Multiply each activation sensitivity by the derivative of its own ReLU. Denote the resulting preactivation sensitivities by <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub></mrow><annotation encoding="application/x-tex">g_z</annotation></semantics></math></span>, and use <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>⊙</mo></mrow><annotation encoding="application/x-tex">\odot</annotation></semantics></math></span> for elementwise multiplication:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub><mo>=</mo><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mi>z</mi></mrow></mfrac><mo>=</mo><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mi>h</mi></mrow></mfrac><mo>⊙</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>3</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>Next, pass those sensitivities through ReLU. For a negative
+preactivation, a small change leaves the activation at zero, so the
+derivative is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>.
+For a positive preactivation, ReLU passes the change through unchanged,
+so the derivative is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>.
+At zero, ReLU has a corner and no unique derivative; an implementation
+must choose a convention. Neither preactivation here is zero.</p>
+<p>Multiply each activation sensitivity by the derivative of its own
+ReLU. Denote the resulting preactivation sensitivities by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mi>z</mi></msub><annotation encoding="application/x-tex">g_z</annotation></semantics></math>,
+and use
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>⊙</mi><annotation encoding="application/x-tex">\odot</annotation></semantics></math>
+for elementwise multiplication:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub><mo>=</mo><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mi>z</mi></mrow></mfrac><mo>=</mo><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mi>h</mi></mrow></mfrac><mo>⊙</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>3</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 g_z=\frac{\partial L}{\partial z}
  =\frac{\partial L}{\partial h}\odot
    \begin{bmatrix}0\\1\end{bmatrix}
  =\begin{bmatrix}0\\3\end{bmatrix}.
-</annotation></semantics></math></span></div>
-<p>We can now reach the first layer's weights. Each weight contributes its input value to the derivative of its unit's preactivation. Multiply that input by the corresponding entry of <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub></mrow><annotation encoding="application/x-tex">g_z</annotation></semantics></math></span>. This gives zero for both weights of the inactive first unit, and values 3 and 6 for the second unit's two weights:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><msub><mi>W</mi><mn>1</mn></msub></mrow></mfrac><mo>=</mo><msub><mi>g</mi><mi>z</mi></msub><msup><mi>x</mi><mi>T</mi></msup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>3</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>6</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="2em"></mspace><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><msub><mi>b</mi><mn>1</mn></msub></mrow></mfrac><mo>=</mo><msub><mi>g</mi><mi>z</mi></msub><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>3</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>We can now calculate gradients for the hidden weights. Recall that
+unit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+computes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><msub><mo>∑</mo><mi>j</mi></msub><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>x</mi><mi>j</mi></msub><mo>+</mo><mo form="prefix" stretchy="false">(</mo><msub><mi>b</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">z_i=\sum_j(W_1)_{ij}x_j+(b_1)_i</annotation></semantics></math>.
+Increasing weight
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow><annotation encoding="application/x-tex">(W_1)_{ij}</annotation></semantics></math>
+by a small amount changes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mi>i</mi></msub><annotation encoding="application/x-tex">z_i</annotation></semantics></math>
+by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>j</mi></msub><annotation encoding="application/x-tex">x_j</annotation></semantics></math>
+times that amount. Its loss derivative is therefore the input
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>j</mi></msub><annotation encoding="application/x-tex">x_j</annotation></semantics></math>
+multiplied by the corresponding loss sensitivity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>g</mi><mi>z</mi></msub><msub><mo form="postfix" stretchy="false">)</mo><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">(g_z)_i</annotation></semantics></math>.
+This gives zero for both weights of the inactive first unit, and values
+3 and 6 for the second unit’s two weights:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><msub><mi>W</mi><mn>1</mn></msub></mrow></mfrac><mo>=</mo><msub><mi>g</mi><mi>z</mi></msub><msup><mi>x</mi><mi>T</mi></msup><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>3</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>6</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><msub><mi>b</mi><mn>1</mn></msub></mrow></mfrac><mo>=</mo><msub><mi>g</mi><mi>z</mi></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>3</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \frac{\partial L}{\partial W_1}=g_zx^T
  =\begin{bmatrix}0&amp;0\\3&amp;6\end{bmatrix},\qquad
 \frac{\partial L}{\partial b_1}=g_z
  =\begin{bmatrix}0\\3\end{bmatrix}.
-</annotation></semantics></math></span></div>
-<p>The expression <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub><msup><mi>x</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">g_zx^T</annotation></semantics></math></span> is an <strong>outer product</strong>: each entry of the column vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub></mrow><annotation encoding="application/x-tex">g_z</annotation></semantics></math></span> multiplies every entry of the row vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>x</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">x^T</annotation></semantics></math></span>. Its shape is <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mn>2</mn><mo>×</mo><mn>1</mn><mo stretchy="false">)</mo><mo stretchy="false">(</mo><mn>1</mn><mo>×</mo><mn>2</mn><mo stretchy="false">)</mo><mo>=</mo><mn>2</mn><mo>×</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">(2\times1)(1\times2)=2\times2</annotation></semantics></math></span>, matching <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">W_1</annotation></semantics></math></span>. Together, the derivatives with respect to all entries of an array form its <strong>gradient</strong>. The gradient has the same shape as the parameter array, so each entry identifies the sensitivity of one parameter.</p>
-<p>You can also trace one weight without the matrix notation. The subscript 22 in <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo stretchy="false">)</mo><mn>22</mn></msub></mrow><annotation encoding="application/x-tex">(W_1)_{22}</annotation></semantics></math></span> means the weight in row 2, column 2: the connection from the second input to the second hidden unit. To connect its change to the loss, multiply the sensitivities along its path. This is the <strong>chain rule</strong> for a composition of functions:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mo stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo stretchy="false">)</mo><mn>22</mn></msub></mrow></mfrac><mo>=</mo><munder><munder><mfrac><mrow><mi mathvariant="normal">∂</mi><mi>L</mi></mrow><mrow><mi mathvariant="normal">∂</mi><mover accent="true"><mi>y</mi><mo>^</mo></mover></mrow></mfrac><mo stretchy="true">⏟</mo></munder><mn>1.5</mn></munder><munder><munder><mfrac><mrow><mi mathvariant="normal">∂</mi><mover accent="true"><mi>y</mi><mo>^</mo></mover></mrow><mrow><mi mathvariant="normal">∂</mi><msub><mi>h</mi><mn>2</mn></msub></mrow></mfrac><mo stretchy="true">⏟</mo></munder><mn>2</mn></munder><munder><munder><mfrac><mrow><mi mathvariant="normal">∂</mi><msub><mi>h</mi><mn>2</mn></msub></mrow><mrow><mi mathvariant="normal">∂</mi><msub><mi>z</mi><mn>2</mn></msub></mrow></mfrac><mo stretchy="true">⏟</mo></munder><mn>1</mn></munder><munder><munder><mfrac><mrow><mi mathvariant="normal">∂</mi><msub><mi>z</mi><mn>2</mn></msub></mrow><mrow><mi mathvariant="normal">∂</mi><mo stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo stretchy="false">)</mo><mn>22</mn></msub></mrow></mfrac><mo stretchy="true">⏟</mo></munder><mrow><msub><mi>x</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow></munder><mo>=</mo><mn>6.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The expression
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>z</mi></msub><msup><mi>x</mi><mi>T</mi></msup></mrow><annotation encoding="application/x-tex">g_zx^T</annotation></semantics></math>
+is an <strong>outer product</strong>: each entry of the column vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mi>z</mi></msub><annotation encoding="application/x-tex">g_z</annotation></semantics></math>
+multiplies every entry of the row vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>x</mi><mi>T</mi></msup><annotation encoding="application/x-tex">x^T</annotation></semantics></math>.
+Its shape is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mo>×</mo><mn>1</mn><mo form="postfix" stretchy="false">)</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>×</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>2</mn><mo>×</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">(2\times1)(1\times2)=2\times2</annotation></semantics></math>,
+matching
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>1</mn></msub><annotation encoding="application/x-tex">W_1</annotation></semantics></math>.
+Each entry is the loss sensitivity for the weight in the same position
+in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mn>1</mn></msub><annotation encoding="application/x-tex">W_1</annotation></semantics></math>.</p>
+<p>You can also trace one weight without the matrix notation. The
+subscript 22 in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mn>22</mn></msub></mrow><annotation encoding="application/x-tex">(W_1)_{22}</annotation></semantics></math>
+means the weight in row 2, column 2: the connection from the second
+input to the second hidden unit. To connect its change to the loss,
+multiply the sensitivities along its path. This is the <strong>chain
+rule</strong> for a composition of functions:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mn>22</mn></msub></mrow></mfrac><mo>=</mo><munder><munder><mfrac><mrow><mi>∂</mi><mi>L</mi></mrow><mrow><mi>∂</mi><mover><mi>y</mi><mo accent="true">̂</mo></mover></mrow></mfrac><mo accent="true">⏟</mo></munder><mn>1.5</mn></munder><munder><munder><mfrac><mrow><mi>∂</mi><mover><mi>y</mi><mo accent="true">̂</mo></mover></mrow><mrow><mi>∂</mi><msub><mi>h</mi><mn>2</mn></msub></mrow></mfrac><mo accent="true">⏟</mo></munder><mn>2</mn></munder><munder><munder><mfrac><mrow><mi>∂</mi><msub><mi>h</mi><mn>2</mn></msub></mrow><mrow><mi>∂</mi><msub><mi>z</mi><mn>2</mn></msub></mrow></mfrac><mo accent="true">⏟</mo></munder><mn>1</mn></munder><munder><munder><mfrac><mrow><mi>∂</mi><msub><mi>z</mi><mn>2</mn></msub></mrow><mrow><mi>∂</mi><mo form="prefix" stretchy="false">(</mo><msub><mi>W</mi><mn>1</mn></msub><msub><mo form="postfix" stretchy="false">)</mo><mn>22</mn></msub></mrow></mfrac><mo accent="true">⏟</mo></munder><mrow><msub><mi>x</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow></munder><mo>=</mo><mn>6</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \frac{\partial L}{\partial(W_1)_{22}}
 =\underbrace{\frac{\partial L}{\partial\hat y}}_{1.5}
  \underbrace{\frac{\partial\hat y}{\partial h_2}}_{2}
  \underbrace{\frac{\partial h_2}{\partial z_2}}_{1}
  \underbrace{\frac{\partial z_2}{\partial(W_1)_{22}}}_{x_2=2}
 =6.
-</annotation></semantics></math></span></div>
-<p>The product gives 6, matching the matrix calculation. It explains how a final prediction error can guide an early weight: the chain rule connects that weight to the error through the intervening operations. Backpropagation organises the calculations so shared intermediate sensitivities can be reused. When a value affects the loss along several paths, their derivative contributions are added.<sup><a href="#ref-4" aria-label="Reference 4">4</a></sup></p>
-<p>Notice the distinction between <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∂</mi><mi>L</mi><mi mathvariant="normal">/</mi><mi mathvariant="normal">∂</mi><msub><mi>h</mi><mn>1</mn></msub><mo>=</mo><mn>1.5</mn></mrow><annotation encoding="application/x-tex">\partial L/\partial h_1=1.5</annotation></semantics></math></span> and <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∂</mi><mi>L</mi><mi mathvariant="normal">/</mi><mi mathvariant="normal">∂</mi><msub><mi>z</mi><mn>1</mn></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\partial L/\partial z_1=0</annotation></semantics></math></span>. Changing the hidden output would affect the loss, but small changes to its negative preactivation leave its ReLU output at zero. Its input weights therefore receive zero loss gradient from this example. Another example may activate it; one zero gradient does not establish that a unit is permanently inactive.</p>
-<h3>3. Parameter update: use the gradients</h3>
-<p>Calculating a gradient does not yet change the network. An optimisation rule must use it to update the parameters. <strong>Gradient descent</strong> subtracts a multiple of each parameter's derivative, moving in the direction that locally reduces the loss. The positive multiplier <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi></mrow><annotation encoding="application/x-tex">\eta</annotation></semantics></math></span> is the <strong>learning rate</strong>: it controls the size of the step.</p>
-<p>If we collect all weights and biases into a vector <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow><annotation encoding="application/x-tex">\theta</annotation></semantics></math></span>, the update can be written in one line. The notation <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">∇</mi><mi>θ</mi></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\nabla_\theta L</annotation></semantics></math></span> denotes the vector of their loss derivatives:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>θ</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">w</mi></mrow></msub><mo>=</mo><msub><mi>θ</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">d</mi></mrow></msub><mo>−</mo><mi>η</mi><msub><mi mathvariant="normal">∇</mi><mi>θ</mi></msub><mi>L</mi><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>The product gives 6, matching the matrix calculation. It explains how
+a final prediction error can guide an early weight: the chain rule
+connects that weight to the error through the intervening operations.
+Backpropagation organises the calculations so shared intermediate
+sensitivities can be reused. When a value affects the loss along several
+paths, their derivative contributions are added.<a class="footnote-ref" href="#ref-6" id="fnref6" role="doc-noteref"><sup>6</sup></a></p>
+<p>Notice the distinction between
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><mi>L</mi><mi>/</mi><mi>∂</mi><msub><mi>h</mi><mn>1</mn></msub><mo>=</mo><mn>1.5</mn></mrow><annotation encoding="application/x-tex">\partial L/\partial h_1=1.5</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><mi>L</mi><mi>/</mi><mi>∂</mi><msub><mi>z</mi><mn>1</mn></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\partial L/\partial z_1=0</annotation></semantics></math>.
+Changing the hidden output would affect the loss, but small changes to
+its negative preactivation leave its ReLU output at zero. Its input
+weights therefore receive zero loss gradient from this observation.
+Another observation may activate it; one zero gradient does not
+establish that a unit is permanently inactive.</p>
+<h3 id="parameter-update-use-the-gradients">3. Parameter update: use the
+gradients</h3>
+<p>Calculating a gradient does not yet change the network. An
+optimisation rule must use it to update the parameters. <strong>Gradient
+descent</strong> subtracts a multiple of each parameter’s derivative,
+moving in the direction that locally reduces the loss. The positive
+multiplier
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>η</mi><annotation encoding="application/x-tex">\eta</annotation></semantics></math>
+is the <strong>learning rate</strong>: it controls the size of the
+step.</p>
+<p>If we collect all weights and biases into a vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math>,
+the update can be written in one line. The notation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>∇</mi><mi>θ</mi></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\nabla_\theta L</annotation></semantics></math>
+denotes the vector of their loss derivatives:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">w</mi></mrow></msub><mo>=</mo><msub><mi>θ</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">d</mi></mrow></msub><mo>−</mo><mi>η</mi><msub><mi>∇</mi><mi>θ</mi></msub><mi>L</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \theta_{\mathrm{new}}=\theta_{\mathrm{old}}-\eta\nabla_\theta L.
-</annotation></semantics></math></span></div>
-<p>Calculate every derivative at the old parameter values, then apply the update to all parameters. With the illustrative learning rate <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi><mo>=</mo><mn>0.05</mn></mrow><annotation encoding="application/x-tex">\eta=0.05</annotation></semantics></math></span>, the second hidden unit's first weight changes from 0.5 to <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.5</mn><mo>−</mo><mn>0.05</mn><mo stretchy="false">(</mo><mn>3</mn><mo stretchy="false">)</mo><mo>=</mo><mn>0.35</mn></mrow><annotation encoding="application/x-tex">0.5-0.05(3)=0.35</annotation></semantics></math></span>. Applying the same rule to the other entries gives:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msubsup><mi>W</mi><mn>1</mn><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msubsup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>1</mn></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0.35</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0.20</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><msubsup><mi>b</mi><mn>1</mn><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msubsup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>0.15</mn></mrow></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><msubsup><mi>W</mi><mn>2</mn><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msubsup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1</mn></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>1.8875</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="1em"></mspace><msubsup><mi>b</mi><mn>2</mn><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msubsup><mo>=</mo><mn>0.425.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<p>Calculate every derivative at the old parameter values, then apply
+the update to all parameters. With the illustrative learning rate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi><mo>=</mo><mn>0.05</mn></mrow><annotation encoding="application/x-tex">\eta=0.05</annotation></semantics></math>,
+the second hidden unit’s first weight changes from 0.5 to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.5</mn><mo>−</mo><mn>0.05</mn><mo form="prefix" stretchy="false">(</mo><mn>3</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0.35</mn></mrow><annotation encoding="application/x-tex">0.5-0.05(3)=0.35</annotation></semantics></math>.
+Applying the same rule to the other entries gives:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>W</mi><msup><mn>1</mn><mo>′</mo></msup></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.35</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>0.20</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><msup><mn>1</mn><mo>′</mo></msup></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>0.15</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>W</mi><msup><mn>2</mn><mo>′</mo></msup></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>1.8875</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>b</mi><msup><mn>2</mn><mo>′</mo></msup></msub><mo>=</mo><mn>0.425</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 W_1'=\begin{bmatrix}1&amp;-1\\0.35&amp;0.20\end{bmatrix},\quad
 b_1'=\begin{bmatrix}0\\-0.15\end{bmatrix},\quad
 W_2'=\begin{bmatrix}1&amp;1.8875\end{bmatrix},\quad b_2'=0.425.
-</annotation></semantics></math></span></div>
+</annotation></semantics></math></div>
 <p>Recompute the forward pass with these new parameters:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msup><mi>z</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>1</mn></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mn>0.35</mn><mo stretchy="false">(</mo><mn>1</mn><mo stretchy="false">)</mo><mo>+</mo><mn>0.20</mn><mo stretchy="false">(</mo><mn>2</mn><mo stretchy="false">)</mo><mo>−</mo><mn>0.15</mn></mrow></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mrow><mo>−</mo><mn>1</mn></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0.6</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo><mspace width="2em"></mspace><msup><mi>h</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>=</mo><mrow><mo fence="true">[</mo><mtable rowspacing="0.16em" columnalign="center" columnspacing="1em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0</mn></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="false"><mn>0.6</mn></mstyle></mtd></mtr></mtable><mo fence="true">]</mo></mrow><mo separator="true">,</mo></mrow><annotation encoding="application/x-tex">
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>z</mi><mo>′</mo></msup><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.35</mn><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>0.20</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>−</mo><mn>0.15</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mi>−</mi><mn>1</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.6</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msup><mi>h</mi><mo>′</mo></msup><mo>=</mo><mrow><mo form="prefix" stretchy="true">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>0</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>0.6</mn></mtd></mtr></mtable><mo form="postfix" stretchy="true">]</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
 z'=\begin{bmatrix}-1\\0.35(1)+0.20(2)-0.15\end{bmatrix}
   =\begin{bmatrix}-1\\0.6\end{bmatrix},\qquad
 h'=\begin{bmatrix}0\\0.6\end{bmatrix},
-</annotation></semantics></math></span></div>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msup><mover accent="true"><mi>y</mi><mo>^</mo></mover><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>=</mo><mn>1.8875</mn><mo stretchy="false">(</mo><mn>0.6</mn><mo stretchy="false">)</mo><mo>+</mo><mn>0.425</mn><mo>=</mo><mn>1.5575</mn><mo separator="true">,</mo><mspace width="2em"></mspace><msup><mi>L</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo stretchy="false">(</mo><mn>1.5575</mn><mo>−</mo><mn>2</mn><msup><mo stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><mn>0.097903125.</mn></mrow><annotation encoding="application/x-tex">
+</annotation></semantics></math></div>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>′</mo></msup><mo>=</mo><mn>1.8875</mn><mo form="prefix" stretchy="false">(</mo><mn>0.6</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>0.425</mn><mo>=</mo><mn>1.5575</mn><mo>,</mo><mspace width="2.0em"></mspace><msup><mi>L</mi><mo>′</mo></msup><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo form="prefix" stretchy="false">(</mo><mn>1.5575</mn><mo>−</mo><mn>2</mn><msup><mo form="postfix" stretchy="false">)</mo><mn>2</mn></msup><mo>=</mo><mn>0.097903125</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \hat y'=1.8875(0.6)+0.425=1.5575,\qquad
 L'=\frac12(1.5575-2)^2=0.097903125.
-</annotation></semantics></math></span></div>
-<p>The new prediction is below the target, but closer to it, so its squared error is smaller. This step succeeded for the chosen example and learning rate. A larger step could increase the loss because the derivative describes local behaviour, not the effect of an arbitrarily large change. Even a successful training update does not establish that predictions will improve on validation data.<sup><a href="#ref-5" aria-label="Reference 5">5</a></sup></p>
-<p>Notice what changed inside the network: for the same input, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">h_2</annotation></semantics></math></span> fell from <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1.5</mn></mrow><annotation encoding="application/x-tex">1.5</annotation></semantics></math></span> to <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.6</mn></mrow><annotation encoding="application/x-tex">0.6</annotation></semantics></math></span>. The update changed the intermediate feature as well as the weights that read that feature. The hidden representation and the final predictor were both adjusted to reduce the same loss.</p>
-</section><section aria-labelledby="automatic-differentiation"><h2 id="automatic-differentiation">Computation graphs and automatic differentiation</h2>
-<p>A computation graph records which operations produced each value. Each operation has a forward calculation and a rule for passing derivatives back to its inputs. Once those rules are available, software can combine them using the chain rule, following the same reasoning we used by hand. This process is called <strong>automatic differentiation (AD)</strong>. PyTorch provides it through its autograd system.<sup><a href="#ref-6" aria-label="Reference 6">6</a></sup></p>
-<p>AD does not estimate every derivative by repeatedly nudging parameters and measuring the loss. It applies derivative rules to the operations in the graph. It also does not need to simplify the whole network into one symbolic expression before differentiating it.</p>
-<p>The training procedure below puts the stages in order. It is explanatory pseudocode rather than an executable program; <code>@</code> denotes matrix multiplication and <code>.T</code> denotes a transpose:</p>
-<pre><code class="language-text">for each training batch X, Y:
+</annotation></semantics></math></div>
+<p>The new prediction is below the target, but closer to it, so its
+squared error is smaller. This step succeeded for the chosen example and
+learning rate. A larger step could increase the loss because the
+derivative describes local behaviour, not the effect of an arbitrarily
+large change. Even a successful training update does not establish that
+predictions will improve on validation data.<a class="footnote-ref" href="#fn7" id="fnref7" role="doc-noteref"><sup>7</sup></a></p>
+<p>For the same observation, the learned feature
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mn>2</mn></msub><annotation encoding="application/x-tex">h_2</annotation></semantics></math>
+fell from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1.5</mn><annotation encoding="application/x-tex">1.5</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.6</mn><annotation encoding="application/x-tex">0.6</annotation></semantics></math>
+because its hidden weights and bias changed. The output weights and bias
+also changed in this update. This is the joint feature learning
+described earlier: both the calculation that produces a hidden feature
+and the calculation that uses it for prediction are adjusted from the
+same loss.</p>
+</section><section aria-labelledby="automatic-differentiation"><h2 id="automatic-differentiation">Computation
+graphs and automatic differentiation</h2>
+<p>We calculated nine parameter derivatives by hand. A larger network
+may contain millions of parameters, so repeating that process manually
+would be impractical. The computation graph provides a way to automate
+it: it records which operations produced each value, as in the
+forward-pass diagram above.</p>
+<p>For each operation, software implements both the forward calculation
+and a rule for calculating derivatives with respect to its inputs.
+Combining those rules through the chain rule is called <strong>automatic
+differentiation (AD)</strong>. Backpropagation is the reverse-mode use
+of AD for calculating a loss’s parameter gradients, following the
+dependencies from output toward input. PyTorch provides this through its
+autograd system.<a class="footnote-ref" href="#fn8" id="fnref8" role="doc-noteref"><sup>8</sup></a></p>
+<p>AD does not estimate every derivative by repeatedly nudging
+parameters and measuring the loss. It applies derivative rules to the
+operations in the graph. It also does not need to simplify the whole
+network into one symbolic expression before differentiating it.</p>
+<p>The training procedure below puts the stages in order. It is
+explanatory pseudocode rather than an executable program; <code>@</code>
+denotes matrix multiplication and <code>.T</code> denotes a
+transpose:</p>
+<pre class="text"><code>for each training batch X, Y:
     clear previously accumulated parameter gradients
     H = ReLU(X @ W1.T + b1)
     predictions = H @ W2.T + b2
     loss = mean(0.5 * (predictions - Y)^2)
     compute gradients of loss with respect to W1, b1, W2, b2
-    update those parameters using the chosen optimiser
-</code></pre>
-<p>For the batch loss shown here, you average the per-example losses. Differentiating that average also averages the examples' gradient contributions. Our numerical example has <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B=1</annotation></semantics></math></span>, so there is only one contribution. In a larger batch, another example may activate a unit that was inactive for this one and give its weights a nonzero gradient.</p>
-<p>When you read a PyTorch training loop, <code>loss.backward()</code> is the gradient calculation. The optimiser's update is a separate operation. The pseudocode clears old gradients because PyTorch accumulates parameter gradients unless you clear them.<sup><a href="#ref-6" aria-label="Reference 6">6</a></sup></p>
-<p>After training, you can use the fitted network to predict scores for new inputs. This application is called <strong>inference</strong>. For ordinary inference, the parameters stay fixed, and a forward pass can run under <code>torch.no_grad()</code> without recording gradients.<sup><a href="#ref-6" aria-label="Reference 6">6</a></sup></p>
+    update those parameters using the chosen optimiser</code></pre>
+<p>For the batch loss shown here, you average the losses of the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
+observations. Differentiating that average also averages their gradient
+contributions. Our numerical example has
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B=1</annotation></semantics></math>,
+so there is only one contribution. In a larger batch, another
+observation may activate a unit that was inactive for this one and give
+its weights a nonzero gradient.</p>
+<p>When you read a PyTorch training loop, <code>loss.backward()</code>
+is the gradient calculation. The optimiser’s update is a separate
+operation. The pseudocode clears old gradients because PyTorch
+accumulates parameter gradients unless you clear them.<a class="footnote-ref" href="#fn9" id="fnref9" role="doc-noteref"><sup>9</sup></a></p>
+<p>After training, you can use the fitted network to predict scores for
+new inputs. This application is called <strong>inference</strong>. For
+ordinary inference, the parameters stay fixed, and a forward pass can
+run under <code>torch.no_grad()</code> without recording gradients.<a class="footnote-ref" href="#fn10" id="fnref10" role="doc-noteref"><sup>10</sup></a></p>
 <p>Keep four decisions separate:</p>
-<div class="table-scroll" tabindex="0" role="region" aria-label="Lesson table; scroll horizontally if needed"><table>
+<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<colgroup>
+<col style="width: 33%"/>
+<col style="width: 33%"/>
+<col style="width: 33%"/>
+</colgroup>
 <thead>
 <tr>
 <th>Decision</th>
@@ -266,7 +813,8 @@ L'=\frac12(1.5575-2)^2=0.097903125.
 <th>What changing it changes</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>Architecture</td>
 <td>Dense → ReLU → dense</td>
 <td>Family of possible mappings</td>
@@ -278,7 +826,8 @@ L'=\frac12(1.5575-2)^2=0.097903125.
 </tr>
 <tr>
 <td>Optimisation</td>
-<td>Gradient descent, <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi><mo>=</mo><mn>0.05</mn></mrow><annotation encoding="application/x-tex">\eta=0.05</annotation></semantics></math></span></td>
+<td>Gradient descent,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi><mo>=</mo><mn>0.05</mn></mrow><annotation encoding="application/x-tex">\eta=0.05</annotation></semantics></math></td>
 <td>How parameters are updated</td>
 </tr>
 <tr>
@@ -286,18 +835,66 @@ L'=\frac12(1.5575-2)^2=0.097903125.
 <td>Fixed-parameter forward pass</td>
 <td>How a fitted model is applied</td>
 </tr>
-</tbody></table></div>
-<p>Backpropagation computes gradients for an objective and graph. It does not choose the architecture, learning rate or evaluation design.</p>
-</section><section aria-labelledby="engineering-choices"><h2 id="engineering-choices">Width, depth and engineering choices</h2>
-<p>Increasing <strong>width</strong>, the number of units in a hidden layer, gives that stage more intermediate responses to work with. It also adds weights. For <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span> inputs, one hidden layer of width <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span> and one output, count the input weights, hidden biases, output weights and output bias in that order:</p>
-<div class="math-display" tabindex="0" role="group" aria-label="Mathematical equation"><span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>d</mi><mi>m</mi><mo>+</mo><mi>m</mi><mo>+</mo><mi>m</mi><mo>+</mo><mn>1</mn><mo>=</mo><mi>m</mi><mo stretchy="false">(</mo><mi>d</mi><mo>+</mo><mn>2</mn><mo stretchy="false">)</mo><mo>+</mo><mn>1.</mn></mrow><annotation encoding="application/x-tex">
+</tbody>
+</table></div>
+<p>Backpropagation computes gradients for an objective and graph. It
+does not choose the architecture, learning rate or evaluation
+design.</p>
+</section><section aria-labelledby="engineering-choices"><h2 id="engineering-choices">Width, depth and
+engineering choices</h2>
+<p>The worked network used two hidden units, but we could choose a
+different number of units or add another hidden layer. These choices
+change the network’s <strong>width</strong> and <strong>depth</strong>.
+Width is the number of units in a layer. Increasing hidden width gives
+the output layer more learned features to combine, but adds trainable
+parameters. For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>d</mi><annotation encoding="application/x-tex">d</annotation></semantics></math>
+input features, one hidden layer of width
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+and one output unit, count the hidden weights, hidden biases, output
+weights and output bias in that order:</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mi>m</mi><mo>+</mo><mi>m</mi><mo>+</mo><mi>m</mi><mo>+</mo><mn>1</mn><mo>=</mo><mi>m</mi><mo form="prefix" stretchy="false">(</mo><mi>d</mi><mo>+</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>+</mo><mn>1</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 dm+m+m+1=m(d+2)+1.
-</annotation></semantics></math></span></div>
-<p>Increasing <strong>depth</strong> adds successive learned transformations. An extra nonlinear hidden layer receives the features formed by the previous layer, so it can build combinations of those features rather than working directly from the original inputs. Depth conventions differ: our network has one hidden layer and two affine layers. State what you are counting when comparing designs.<sup><a href="#ref-2" aria-label="Reference 2">2</a></sup></p>
-<p>Width and depth therefore offer different ways to represent a function. Neither guarantees a better fitted model. A useful design must also be trainable with the available data and resources, and its predictions must hold up under validation.</p>
-<p>The engineering constraint is visible in a simple calculation. Flattening a <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>64</mn><mo>×</mo><mn>64</mn></mrow><annotation encoding="application/x-tex">64\times64</annotation></semantics></math></span> RGB image produces <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>12,288</mn></mrow><annotation encoding="application/x-tex">12{,}288</annotation></semantics></math></span> inputs. Connecting these to <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>128</mn></mrow><annotation encoding="application/x-tex">128</annotation></semantics></math></span> hidden units requires <span class="katex"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>12,288</mn><mo>×</mo><mn>128</mn><mo>+</mo><mn>128</mn><mo>=</mo><mn>1,572,992</mn></mrow><annotation encoding="application/x-tex">12{,}288\times128+128=1{,}572{,}992</annotation></semantics></math></span> parameters in the first layer alone. It also gives each pixel location its own weights. The dense layer does not require nearby pixels to share a detector. Module 4 will introduce a different structural assumption through convolution.</p>
-<p>For the inspection task, keep the simpler models as baselines. If a few descriptors capture the useful information, learning many intermediate features may add complexity without improving validation performance. If you need to learn from image structure, a dense network's separate weight for every pixel position may be a poor fit. The following choices are starting judgements to test, not claims that one method will win:</p>
-<div class="table-scroll" tabindex="0" role="region" aria-label="Lesson table; scroll horizontally if needed"><table>
+</annotation></semantics></math></div>
+<p>Increasing <strong>depth</strong> adds successive learned
+transformations. An extra nonlinear hidden layer receives the features
+formed by the previous layer, so it can build combinations of those
+features rather than working directly from the original inputs. Depth
+conventions differ: our network has one hidden layer and two affine
+layers. State what you are counting when comparing designs.<a class="footnote-ref" href="#fn11" id="fnref11" role="doc-noteref"><sup>11</sup></a></p>
+<p>Width and depth therefore offer different ways to represent a
+function. Neither guarantees a better fitted model. A useful design must
+also be trainable with the available data and resources, and its
+predictions must hold up under validation.</p>
+<p>Parameter cost matters if we replace our two engineered input
+features with image pixels. A
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>64</mn><mo>×</mo><mn>64</mn></mrow><annotation encoding="application/x-tex">64\times64</annotation></semantics></math>
+RGB image has three colour values at each pixel location. Arranging
+those values into one input vector, called <strong>flattening</strong>,
+produces
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>64</mn><mo>×</mo><mn>64</mn><mo>×</mo><mn>3</mn><mo>=</mo><mn>12</mn><mo>,</mo><mn>288</mn></mrow><annotation encoding="application/x-tex">64\times64\times3=12{,}288</annotation></semantics></math>
+input features. Connecting them to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>128</mn><annotation encoding="application/x-tex">128</annotation></semantics></math>
+hidden units requires
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>12</mn><mo>,</mo><mn>288</mn><mo>×</mo><mn>128</mn><mo>+</mo><mn>128</mn><mo>=</mo><mn>1</mn><mo>,</mo><mn>572</mn><mo>,</mo><mn>992</mn></mrow><annotation encoding="application/x-tex">12{,}288\times128+128=1{,}572{,}992</annotation></semantics></math>
+parameters in the hidden layer alone. Each input position has its own
+weights, so learning to respond to a scratch in one location does not
+require the dense layer to use the same calculation elsewhere. Module 4
+will explain how convolution reuses the same weights across spatial
+locations.</p>
+<p>For the inspection task, keep simpler models as baselines. If a few
+engineered input features capture the useful information, learning many
+additional features may add complexity without improving validation
+performance. If you need to learn from image structure, a dense
+network’s separate weight for every pixel position may be a poor fit.
+The following choices are starting judgements to test, not claims that
+one method will win:</p>
+<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<colgroup>
+<col style="width: 33%"/>
+<col style="width: 33%"/>
+<col style="width: 33%"/>
+</colgroup>
 <thead>
 <tr>
 <th>Situation</th>
@@ -305,13 +902,14 @@ dm+m+m+1=m(d+2)+1.
 <th>Main limitation to examine</th>
 </tr>
 </thead>
-<tbody><tr>
-<td>Few descriptors; approximately additive relationship</td>
+<tbody>
+<tr>
+<td>Few engineered features; approximately additive relationship</td>
 <td>Linear model with suitable transforms</td>
 <td>Missed nonlinear structure</td>
 </tr>
 <tr>
-<td>Tabular descriptors; useful conditional interactions</td>
+<td>Tabular input features; useful conditional interactions</td>
 <td>Boosted-tree baseline</td>
 <td>Fit to validation setting and deployment needs</td>
 </tr>
@@ -325,11 +923,69 @@ dm+m+m+1=m(d+2)+1.
 <td>Compare with a convolutional model</td>
 <td>Whether locality and sharing suit the task</td>
 </tr>
-</tbody></table></div>
-<p>A network's features are shaped by what helps reduce the training objective. If an irrelevant pattern predicts the labels in your training data, the network may use it. An active hidden unit therefore shows that a calculation occurred; it does not by itself show that the network recognised a meaningful defect. You still need validation and error analysis to judge whether the learned features support reliable predictions.</p>
+</tbody>
+</table></div>
+<p>A network’s features are shaped by what helps reduce the training
+objective. If an irrelevant pattern predicts the labels in your training
+data, the network may use it. An active hidden unit therefore shows that
+a calculation occurred; it does not by itself show that the network
+recognised a meaningful defect. You still need validation and error
+analysis to judge whether the learned features support reliable
+predictions.</p>
 </section><section aria-labelledby="connections"><h2 id="connections">What to carry forward</h2>
-<p>A feedforward network makes a prediction through a sequence of transformations, with information moving from input to output. Its nonlinearities let the prediction respond differently in different input regions. During learning, the chain rule connects the final loss to the weights in those earlier transformations, allowing the hidden features and the output predictor to change together.</p>
-<p>Keep the three stages distinct: the forward pass calculates values, the backward pass calculates derivatives, and the optimiser changes parameters. The worked example showed why the distinction matters: an inactive ReLU can block a weight's loss gradient for one example even when changing the unit's output would affect the prediction. Module 2 builds on this mechanism to explain why some networks are harder to train and what can make them more trainable.</p>
+<p>A feedforward network makes a prediction through a sequence of
+transformations, with information moving from input to output. Its
+nonlinearities let the prediction respond differently in different input
+regions. During learning, the chain rule connects the final loss to the
+weights in those earlier transformations, allowing the hidden features
+and the output predictor to change together.</p>
+<p>Keep the three stages distinct: the forward pass calculates values,
+the backward pass calculates derivatives, and the optimiser changes
+parameters. The worked example showed why the distinction matters: an
+inactive ReLU can block a weight’s loss gradient for one observation
+even when changing the unit’s output would affect the prediction. Module
+2 builds on this mechanism to explain why some networks are harder to
+train and what can make them more trainable.</p>
 </section><section aria-labelledby="references"><h2 id="references">References</h2>
-<p>The numerical example and derivations are original teaching material. The sources below explain the underlying mechanisms and the PyTorch interfaces mentioned in the lesson. Sources were accessed on <strong>1 November 2026</strong>; the example is illustrative and does not report results from a fitted inspection model.</p>
-<ol class="references"><li id="ref-1">Goodfellow, I., Bengio, Y. and Courville, A. (2016). <em>Deep Learning</em>, Chapter 6, introduction and feature-learning discussion. <a href="https://www.deeplearningbook.org/contents/mlp.html">Deep feedforward networks</a>.</li><li id="ref-2">Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part 1: architecture, activations and representational power</a>.</li><li id="ref-3">PyTorch. Version 2.9 documentation. <a href="https://docs.pytorch.org/docs/2.9/generated/torch.nn.Linear.html">torch.nn.Linear: affine transformation and parameter shapes</a>. Version-specific documentation is cited for the shape convention, not as a claim about the newest release.</li><li id="ref-4">Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/optimization-2/">Backpropagation, intuitions and staged computation</a>.</li><li id="ref-5">Goodfellow, I., Bengio, Y. and Courville, A. (2016). <em>Deep Learning</em>, Chapter 8, especially §8.1 on optimisation and generalisation. <a href="https://www.deeplearningbook.org/contents/optimization.html">Optimisation for training deep models</a>.</li><li id="ref-6">PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic differentiation with torch.autograd</a>. Consulted for graph tracking, backward computation, gradient accumulation and disabling tracking.</li></ol></section></article><footer>Reading edition · Works offline · <a href="01-from-conventional-ml-to-differentiable-models.md">Markdown source</a></footer></main></div></body></html>
+<p>The numerical example and derivations are original teaching material.
+The sources below explain the underlying mechanisms and the PyTorch
+interfaces mentioned in the lesson. Sources were rechecked on <strong>2
+November 2026</strong>; the example is illustrative and does not report
+results from a fitted inspection model.</p>
+<section class="footnotes footnotes-end-of-document" id="footnotes" role="doc-endnotes">
+<hr/>
+<ol>
+<li id="ref-1"><p>Goodfellow, I., Bengio, Y. and Courville, A. (2016).
+<em>Deep Learning</em>, Chapter 6, introduction and feature-learning
+discussion. <a href="https://www.deeplearningbook.org/contents/mlp.html">Deep
+feedforward networks</a>.<a class="footnote-back" href="#fnref1" role="doc-backlink">↩︎</a></p></li>
+<li id="ref-2"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
+1: architecture, activations and representational power</a>.<a class="footnote-back" href="#fnref2" role="doc-backlink">↩︎</a></p></li>
+<li id="ref-3"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
+1: architecture, activations and representational power</a>.<a class="footnote-back" href="#fnref3" role="doc-backlink">↩︎</a></p></li>
+<li id="ref-4"><p>PyTorch. Version 2.9 documentation. <a href="https://docs.pytorch.org/docs/2.9/generated/torch.nn.Linear.html">torch.nn.Linear:
+affine transformation and parameter shapes</a>. Version-specific
+documentation is cited for the shape convention, not as a claim about
+the newest release.<a class="footnote-back" href="#fnref4" role="doc-backlink">↩︎</a></p></li>
+<li id="ref-5"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/optimization-2/">Backpropagation,
+intuitions and staged computation</a>.<a class="footnote-back" href="#fnref5" role="doc-backlink">↩︎</a></p></li>
+<li id="ref-6"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/optimization-2/">Backpropagation,
+intuitions and staged computation</a>.<a class="footnote-back" href="#fnref6" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>Goodfellow, I., Bengio, Y. and Courville, A. (2016).
+<em>Deep Learning</em>, Chapter 8, especially §8.1 on optimisation and
+generalisation. <a href="https://www.deeplearningbook.org/contents/optimization.html">Optimisation
+for training deep models</a>.<a class="footnote-back" href="#fnref7" role="doc-backlink">↩︎</a></p></li>
+<li id="fn8"><p>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
+differentiation with torch.autograd</a>. Consulted for graph tracking,
+backward computation, gradient accumulation and disabling tracking.<a class="footnote-back" href="#fnref8" role="doc-backlink">↩︎</a></p></li>
+<li id="fn9"><p>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
+differentiation with torch.autograd</a>. Consulted for graph tracking,
+backward computation, gradient accumulation and disabling tracking.<a class="footnote-back" href="#fnref9" role="doc-backlink">↩︎</a></p></li>
+<li id="fn10"><p>PyTorch Tutorials. <a href="https://docs.pytorch.org/tutorials/beginner/basics/autogradqs_tutorial.html">Automatic
+differentiation with torch.autograd</a>. Consulted for graph tracking,
+backward computation, gradient accumulation and disabling tracking.<a class="footnote-back" href="#fnref10" role="doc-backlink">↩︎</a></p></li>
+<li id="fn11"><p>Stanford CS231n. Undated course notes. <a href="https://cs231n.github.io/neural-networks-1/">Neural networks, Part
+1: architecture, activations and representational power</a>.<a class="footnote-back" href="#fnref11" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</section></article><footer>Reading edition · Works offline · <a href="01-from-conventional-ml-to-differentiable-models.md">Markdown source</a></footer></main></div></body></html>

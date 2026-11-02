@@ -85,7 +85,7 @@ Most substantial lessons should include the following **in a natural order**, ad
 
 1. **Learning outcomes and prerequisites:** What the learner should be able to explain, compare, or do; identify assumed prior knowledge.
 2. **Driving question:** A concrete problem or phenomenon that makes the concept worth learning.
-3. **Intuitive mental model:** Explain mechanisms and causal relationships, including a good analogy and where that analogy breaks down.
+3. **Intuitive mental model:** Explain mechanisms and causal relationships, using an analogy only where it clarifies the mechanism and stating its limits where relevant.
 4. **Technical explanation:** Core concepts, structure, algorithms, equations, notation, assumptions, and reasoning steps, at the level warranted by the curriculum.
 5. **Worked example:** An end-to-end example with intermediate reasoning, not just a final result; use a second contrasting example where useful.
 6. **Choice and trade-offs:** Why this approach exists, what alternatives solve the same problem, when to choose each, and typical failure modes.
@@ -145,6 +145,29 @@ These modes and implementation rules are repository editorial choices informed b
 The teaching version supplies the problem, one specific mechanism, and a limitation. It does not imply that every form of regularization penalizes weights.
 
 Before finalizing, check that the reader can follow the reasoning without guessing missing connections, that terms and symbols appear before they are used, and that headings and formatting expose a coherent argument. Remove filler and duplication; retain the detail needed to explain **why** a step works. Readability scores or short sentences alone do not establish instructional quality.
+
+### Editorial rules from learner feedback
+
+Apply these rules to the whole explanation, not just to sentences the learner flags:
+
+1. **Establish purpose before definitions.** Explain what problem the next concept solves and why it is needed here. Transitions must connect the preceding idea to the next calculation; avoid abrupt directions such as “Start with the stage…”.
+2. **Show the whole before its parts.** State the model or process, its inputs and outputs, and the roles and order of its components before introducing their details. Distinguish execution order from learning or fitting order when they differ.
+3. **Ground notation in its referents.** Identify what each symbol represents before using it. For arrays, explain what entries and axes mean, then give shapes and operations. Distinguish data from parameters and a component from its parameter matrix. Explain changes of orientation, convention or representation explicitly.
+4. **Keep terminology stable.** Choose a term such as “observation” and use it consistently. Explain necessary synonyms and connect new terms to earlier concepts; do not silently replace “features” with “measurements.”
+5. **Name the claim instead of pointing vaguely backward.** Replace ambiguous pronouns and phrases such as “its size,” “that restriction” or “the stage” with the relevant object or limitation when the referent is not immediate and unique.
+6. **Supply the consequential reasoning.** State the model and assumptions behind a claim, explain how the operation produces the result, and interpret the result. For example, explain feature interactions through the effect of one feature depending on another, rather than assuming “same predicted effect” communicates that meaning. Preserve technical depth while removing the need to guess missing links.
+7. **Use concrete mechanisms before metaphor or geometry.** Prefer the actual computation to phrases such as “input-dependent participation.” Define what a boundary separates, the equation that defines it and what moving it means. Use an analogy only when its useful correspondence is clearer than a direct explanation; remove analogies that need immediate repairs.
+8. **Make caveats earn their place.** Include a distinction or software detail where it affects the learner's interpretation or next action. Explain both sides and the practical consequence. Do not announce that meanings differ without explaining how, or add terminology merely to be comprehensive.
+
+When responding to a learner's flagged passage, suggest the revised wording first, then name the writing issues and connect them to the recurring patterns. Acknowledge genuinely new patterns rather than forcing every example into the existing list.
+
+### Editorial review and enforcement
+
+- The author must perform a deliberate editorial pass for every substantive lesson change, checking the rules above as well as technical correctness. Read transitions and symbol introductions in sequence; do not treat keyword searches or readability scores as proof of clarity.
+- For a new lesson or a substantial rewrite, use a separate editorial reviewer agent when agent tools are available. Give it the curriculum, profiles, these rules and the complete proposed lesson. Ask it to identify concrete comprehension gaps, ambiguous distinctions and unnecessary detours independently; it must not merely approve a list of repaired quotations. Minor targeted corrections need only an author review unless they expose a wider problem.
+- Keep review read-only until findings are collected. The author resolves findings, checks technical consequences and synchronises all reading/source editions. Recheck affected passages after changes. The reviewer does not infer learner mastery or authorise extras.
+- Record review scope, resolved findings and remaining gaps in the subject's `PROGRESS.md`. If independent review is unavailable for a new lesson or substantial rewrite, disclose that limitation and retain `drafted` status until it is performed. Independent review complements calculations, source checks and rendering; agreement alone does not establish accuracy.
+- This file is the canonical editorial contract. Do not create duplicate agent instructions or a permanent agent roster to repeat it. A reviewer receives a bounded task using these rules.
 
 ### Writing and learning references
 

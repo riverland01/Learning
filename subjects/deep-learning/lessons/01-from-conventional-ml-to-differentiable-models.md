@@ -1,6 +1,6 @@
 # Module 1 — From conventional ML to differentiable models
 
-_Week 1 · Core lesson · Authored 1 November 2026_
+_Week 1 · Core lesson · Authored 1 November 2026 · Revised 2 November 2026_
 
 [Read the formatted HTML lesson](01-from-conventional-ml-to-differentiable-models.html).
 
@@ -22,46 +22,56 @@ The aim is to follow one small network all the way from its inputs to a predicti
 
 ## 🔍 The problem: useful features need not be obvious
 
-Imagine predicting the severity of a surface defect from an inspection image. You could extract descriptors such as contrast and edge density, then fit a linear regression model. In that model, increasing contrast by one unit has the same predicted effect at every level of edge density. That restriction may be unsuitable if high contrast signals a defect only when many edges are also present.
+Imagine predicting the severity of a surface defect from an inspection image. Each image is one **observation**. You extract two input features: contrast, denoted by $c$, and edge density, denoted by $e$. A linear regression model predicts a severity score $\hat y$ using a separate coefficient for each feature and a bias $b$:
 
-You could address the restriction by designing interaction terms or other transformed features. But that requires you to choose useful transformations before fitting the predictor. A neural network gives you another option: let the training objective help shape those transformations.
+$$
+\hat y=b+w_c c+w_e e.
+$$
 
-A neural network introduces an **intermediate representation**, a collection of derived features whose parameters are learned together with the final predictor. Instead of fixing every feature transformation, you specify a family of transformations and fit their parameters using the prediction objective. We will use a **feedforward network**: values pass from input toward output through successive stages, without looping back into an earlier stage.[^1]
+Once the coefficients are fitted, increasing contrast by one unit changes the prediction by $w_c$, regardless of the edge density. The two coefficients need not be equal. The limitation is that contrast's effect cannot depend on edge density. Suppose contrast is informative about severity only when many edges are present. That is a **feature interaction**: the effect of one feature depends on another.
 
-For example, an intermediate feature could be zero below a threshold and increase above it, with the threshold applied to a weighted combination of contrast and edge density. Training can adjust both the combination and its threshold. A later stage can then use that response to make a prediction.
+You could supply the additional feature $ce$ and fit its coefficient too. With a term $w_{ce}ce$, a one-unit increase in contrast changes the prediction by $w_c+w_{ce}e$, so its effect now depends on edge density. Choosing that product is **feature engineering**: you specify a transformation before fitting the predictor. A neural network offers another way to construct useful features by learning parameters of the transformations themselves.[^1]
 
-Feature engineering and feature learning can therefore coexist. In our example, you still supply two engineered image descriptors. The network learns how to transform and combine them; it does not discover its own image measurements directly from pixels.
+We will use a network with **one hidden layer and one output layer**. The hidden layer transforms the input features into new numerical features; the output layer combines those learned features into a predicted severity score. The collection of hidden-layer outputs is called an **intermediate representation**. We count two layers with trainable parameters; the input itself is not counted as a layer in this convention.
 
-Think of a network as an adjustable measurement pipeline. Early stages build measurements; later stages combine them into a prediction. The training signal adjusts the whole pipeline. The analogy has a limit: hidden units need not correspond to named concepts such as “scratch” or “roughness”, and the loss does not prescribe a unique internal explanation.
+This is a **feedforward network**: to make a prediction, we calculate the hidden features first and then use them to calculate the output, without looping back to an earlier layer. That order of calculation does not mean that training finishes learning the hidden features before fitting the output layer. Training adjusts parameters in both layers together, using the same prediction error.
 
-Our driving question is: How can one final prediction error tell an early transformation which way to change?
+Feature engineering and feature learning can therefore coexist. Here, you still supply contrast and edge density, extracted from the image using calculations you chose. The network learns transformations of those two features rather than learning directly from pixels. A learned feature need not have a human-readable name such as “scratch”: training rewards useful predictions without requiring each hidden feature to represent a concept we recognise.
+
+We will first examine how these two layers calculate a prediction. Then we will answer the central learning question: how can the final prediction error tell the hidden layer's parameters which way to change?
 
 ## 🧱 Building the forward computation
 
-### An affine transformation makes weighted measurements
+### The hidden layer constructs learned features
 
-Start with the stage that combines the input descriptors. Put the $d$ input values for one example into a column vector $x$. If you want $m$ intermediate measurements, arrange their weights as $m$ rows of a matrix $W_1$. A vector $b_1$ supplies one offset for each measurement. Together they produce a vector $z$:
+The hidden layer begins with an operation you know from linear regression: multiply each input feature by a weight, add the results, and add a bias. A **hidden unit** performs one such calculation, then applies an activation function. Its output becomes one learned feature for the output layer.
+
+Represent one observation by a column vector $x$ containing its $d$ input features. In our inspection task, $d=2$, with contrast in the first entry and edge density in the second. Suppose the hidden layer contains $m$ units. Each unit needs $d$ weights, one for each input feature, and one bias.
+
+We collect the hidden weights into a matrix $W_1$ with $m$ rows and $d$ columns. **Row $i$ contains the weights for hidden unit $i$.** The vector $b_1$ contains the $m$ biases. The subscript 1 identifies the hidden layer; later, $W_2$ and $b_2$ will hold the output layer's parameters. These symbols identify parameter arrays, not complete layers.
+
+Matrix multiplication calculates all $m$ weighted sums at once. Call the resulting column vector $z$:
 
 $$
 z=W_1x+b_1,
 \qquad x\in\mathbb{R}^{d},\quad W_1\in\mathbb{R}^{m\times d},\quad b_1\in\mathbb{R}^{m}.
 $$
 
-The notation $\mathbb{R}^{m\times d}$ means a matrix of real numbers with $m$ rows and $d$ columns. Multiplying it by the $d$ inputs produces $m$ values. To see what one row does, write the $i$th measurement separately:
+The notation $\mathbb{R}^{m\times d}$ means a matrix of real numbers with $m$ rows and $d$ columns. We treat $x$, $z$ and $b_1$ as column vectors, with shapes $d\times1$, $m\times1$ and $m\times1$. To see how the matrix equation produces one unit's weighted sum, write its $i$th entry separately:
 
 $$
 z_i=\sum_{j=1}^{d}(W_1)_{ij}x_j+(b_1)_i.
 $$
 
-Weights control sensitivity to inputs; the bias shifts the measurement's offset. This is an **affine** transformation: a linear transformation plus an offset. It need not pass through the origin.
+Here, $x_j$ is input feature $j$, and $(W_1)_{ij}$ is the weight connecting that feature to unit $i$. The summation adds the $d$ weighted inputs; $(b_1)_i$ then adds that unit's bias. The bias allows a nonzero result even when all inputs are zero. A weighted sum plus a bias is called an **affine transformation**.
 
-Next, decide which measurements will contribute to the next stage. We will use the **rectified linear unit (ReLU)**, which replaces a negative value with zero and leaves a positive value unchanged. Apply the rule separately to every component of $z$ to obtain the hidden vector $h$:
+If we passed these weighted sums directly to another linear predictor, the combined model would still be linear regression on the original inputs. We will show why shortly. To allow a more flexible relationship, apply an **activation function**, a rule that transforms each weighted sum. We use the **rectified linear unit (ReLU)**: it outputs zero when its input is zero or negative, and leaves a positive input unchanged. Applying ReLU separately to each entry of $z$ produces the learned features in a column vector $h$:
 
 $$
 h_i=\operatorname{ReLU}(z_i)=\max(0,z_i).
 $$
 
-The values in $z$ are called **preactivations** because they come before the activation function. The values in $h$ are the resulting activations. A subscript, such as $h_i$, selects one component. The layer is “hidden” because the training data supplies a target for the final output, not a target value for each of these intermediate responses.
+The values in $z$ are called **preactivations** because they come before the activation function. The values in $h$ are called **activations**: these are the hidden layer's $m$ learned feature values for this observation. For example, one unit could combine contrast and edge density and produce zero until that combination exceeds a threshold. Training adjusts the weights and bias, changing which input combinations produce a positive response. The layer is “hidden” because the training data supplies a target for the final output, not a target for each hidden feature.
 
 To predict one numerical score, take a weighted sum of the hidden activations and add an output bias. Denote the prediction by $\hat y$, the output weights by $W_2$, and the output bias by $b_2$:
 
@@ -70,7 +80,9 @@ $$
 \qquad W_2\in\mathbb{R}^{1\times m},\quad b_2\in\mathbb{R}.
 $$
 
-The two transformations, with ReLU between them, form a **multilayer perceptron (MLP)** with one hidden layer. The layers are called **dense** because each unit can use every input from the previous stage. We leave the output affine so that the prediction can take any real value, as appropriate for the unrestricted regression score used here.[^2]
+The output weight matrix $W_2$ has one row because there is one predicted score, and $m$ columns because it receives $m$ hidden features. We leave this output affine so that the prediction can take any real value, as appropriate for the unrestricted regression score used here.
+
+The full computation is therefore $x\rightarrow z\rightarrow h\rightarrow\hat y$: the hidden layer computes $h=\operatorname{ReLU}(W_1x+b_1)$, and the output layer computes $\hat y=W_2h+b_2$. This network is a **multilayer perceptron (MLP)**. Both layers are **dense**, meaning that each unit has a weight for every input from the preceding layer.[^2]
 
 ### Why the nonlinearity changes what can be represented
 
@@ -81,17 +93,25 @@ $$
        =(W_2W_1)x+(W_2b_1+b_2).
 $$
 
-The product $W_2W_1$ acts as a new weight matrix, and $W_2b_1+b_2$ acts as a new bias. The whole network therefore reduces to one affine transformation. There are more adjustable numbers, but the prediction still has a constant slope with respect to each input. Adding affine layers alone does not remove the restriction of the original linear regression model.[^2]
+The product $W_2W_1$ acts as a new weight matrix, and $W_2b_1+b_2$ acts as a new bias. The prediction is still a weighted sum of the original input features plus a bias. For the inspection task, contrast still changes the prediction by the same amount at every value of edge density. Stacking affine layers has not allowed the model to express a feature interaction.[^2]
 
-ReLU changes that result because a unit's contribution now depends on whether its preactivation is positive. The boundary $z_i=0$ separates the inputs that activate unit $i$ from those that do not. When an input crosses a boundary, the network can change its slope. The resulting predictor is **piecewise affine**: it is affine within a region where the same units remain active, but can have different slopes in another region.
+ReLU allows the prediction's sensitivity to an input feature to depend on the other inputs. For instance, a hidden unit could compute $h_i=\max(0,c+e-3)$. At edge density $e=0$, increasing contrast from 1 to 2 leaves that unit's output at zero. At $e=3$, the same contrast increase changes its output from 1 to 2. The response to contrast therefore depends on edge density. This is an illustrative feature, not a fitted inspection result.
 
-Thus a hidden unit is more than a weighted sum: it is a weighted sum with input-dependent participation. Its boundary can move during training because both its weights and bias change.
+For this unit, the line $c+e-3=0$ separates input combinations that produce zero from those that produce a positive value. We call it an **activation boundary**. More generally, unit $i$ has a boundary where $z_i=0$. With two input features and nonzero weights, this boundary is a line; changing the weights can rotate it, and changing the bias shifts it. Training can therefore change which combinations of inputs activate the unit. This line describes one hidden unit's response, not a final classification decision.
+
+Within a region where the same units remain active, each ReLU either passes through its weighted sum or outputs zero. The full prediction is affine within that region. Crossing an activation boundary can change which units contribute and hence change the prediction's slope. This is why a ReLU network is called **piecewise affine**: different input regions can use different affine relationships. It can approximate nonlinear relationships, but a finite ReLU network does not exactly reproduce every nonlinear function, such as a product, across a continuous input range.
 
 ### Shapes describe what the operations mean
 
-A **tensor**, in the programming sense used here, is a multidimensional array. Its shape tells you the size of each axis. A vector of two descriptors has shape `(2,)`; a table of ten examples with two descriptors each has shape `(10, 2)`. Libraries may call the number of axes the tensor's rank. That usage is different from matrix rank in linear algebra.
+So far, we have calculated a prediction for one observation. During training, we often calculate predictions for several observations together. Such a group is called a **batch**. To follow that calculation, we need to specify how the observations and their features are arranged.
 
-During training, you usually process a **batch**, a group of examples evaluated together. Let $B$ be its size and put each example in a row of $X$. Earlier, one example was a column vector, so the matrix multiplication must now be written in the opposite orientation. The superscript $T$ denotes a transpose, which exchanges a matrix's rows and columns:
+A batch contains $B$ observations, each with $d$ input features. The number $B$ is the **batch size**. Arrange the observations as rows of a matrix $X$: entry $X_{ij}$ contains feature $j$ of observation $i$. Thus $X$ has $B$ rows and $d$ columns. Ten observations with two features each give a matrix of shape `(10, 2)`.
+
+Numerical software, such as PyTorch, stores these values in arrays called **tensors**. A tensor's **shape** lists the size of each axis. For $X$, the first axis indexes observations and the second indexes input features. A matrix is stored as a two-axis tensor. A mathematical vector can be stored either as a one-axis array, such as `(d,)`, or with an explicit row or column orientation. Our earlier column vector uses shape `(d, 1)`, whereas a row vector uses `(1, d)`. We will keep the observation and feature axes explicit in the batch calculation.
+
+Each row of $X$ is the transpose of the single-observation column vector used earlier. The superscript $T$ denotes a **transpose**, which exchanges rows and columns. Consequently, the row form of $z=W_1x+b_1$ is $z^T=x^TW_1^T+b_1^T$. Applying that same calculation to every observation gives the batch equations below. Uppercase $Z$ and $H$ contain the preactivations and activations for all observations; $\hat Y$ contains their predictions.
+
+For these software-style batch equations, we store the same hidden biases $b_1$ as a one-axis array of shape `(m,)`, rather than an explicit column vector. Adding $b_1$ below means adding those biases to each observation's row. This changes their storage convention, not their values or their role in the model:
 
 $$
 Z=XW_1^T+b_1,\qquad H=\operatorname{ReLU}(Z),\qquad
@@ -100,28 +120,28 @@ $$
 
 | Quantity | Shape | Meaning |
 | --- | --- | --- |
-| $X$ | $B\times d$ | Input examples |
+| $X$ | $B\times d$ | One observation per row; one input feature per column |
 | $W_1$ | $m\times d$ | Hidden weights |
-| $b_1$ | $m$ | Hidden biases |
-| $Z,H$ | $B\times m$ | Intermediate values |
+| $b_1$ | $(m,)$ in software | One bias per hidden unit, reused for every observation |
+| $Z,H$ | $B\times m$ | One observation per row; one hidden unit per column |
 | $W_2$ | $1\times m$ | Output weights |
 | $\hat Y$ | $B\times1$ | Predictions |
 | $Y$ | $B\times1$ | Targets |
 | Mean batch loss | Scalar | Training objective for batch |
 
-The uppercase letters $Z$ and $H$ collect the preactivations and activations for the whole batch. The weights are shared across examples: batching changes how many examples you evaluate together, not which model each example uses.
+The target matrix $Y$ also has one row per observation and one column for the severity score. The same weights are used for every observation: batching evaluates one model on several observations together.
 
-Adding $b_1$ **broadcasts** the same bias vector to every row. Broadcasting is an array rule that lets an operation reuse values across compatible dimensions without writing out each copy. PyTorch's `Linear(d, m)` uses the weight orientation shown here and transforms the final feature axis.[^3]
+In the batch equations, adding $b_1$ means adding the same $m$ biases to every row of $XW_1^T$. PyTorch can store those biases as a one-axis array of shape `(m,)` and reuse it across all rows. This reuse is called **broadcasting**; it avoids explicitly constructing $B$ copies of the bias vector. The scalar output bias $b_2$ is likewise added to every prediction. PyTorch's `Linear(d, m)` stores weights in the $m\times d$ orientation used here and applies them to each observation's $d$ features.[^3]
 
-Broadcasting is convenient, but an operation can run successfully and still compare the wrong quantities. Subtracting predictions of shape `(B, 1)` from targets of shape `(B,)` can produce a `(B, B)` array, comparing every prediction with every target. Keep predictions and targets in the same `(B, 1)` shape when you want one error per example.
+Shapes also determine which values are compared when calculating errors. Predictions and targets should both have shape `(B, 1)` so each prediction is compared with its own target. If predictions have shape `(B, 1)` but targets have shape `(B,)`, broadcasting instead produces a `(B, B)` array: entry $(i,j)$ compares prediction $i$ with target $j$. For a batch of ten observations, that gives 100 pairwise errors instead of ten matched errors. The subtraction can run without a software error while computing the wrong quantity.
 
 ## 🧮 One network, traced through learning
 
-We will now follow the inspection example through one prediction and one learning step. All numbers are **synthetic**. The two input descriptors have been scaled to dimensionless values, and the target is a defect-severity score in arbitrary units. The starting weights are chosen to make the arithmetic easy to follow; they were not fitted to real inspection data.
+We have established what both layers calculate and how their arrays are arranged. We will now use specific numbers to trace one observation through a prediction, calculate how each parameter affects its error, and update the parameters. All numbers are **synthetic**. Contrast and edge density have been scaled to dimensionless values, and the target is a defect-severity score in arbitrary units. The starting weights are chosen to make the arithmetic easy to follow; they were not fitted to real inspection data.
 
 ### 1. Forward pass: calculate the prediction
 
-The input has values 1 and 2, and its target score is 2. The network has two hidden units and one output. Its starting weights and biases are:
+For this observation, contrast is $x_1=1$ and edge density is $x_2=2$. The known target score is $y=2$. We use the two-layer network described above with hidden width $m=2$: two hidden units produce features for one output unit. Its starting weights and biases are:
 
 $$
 x=\begin{bmatrix}1\\2\end{bmatrix},\quad y=2,\quad
@@ -165,11 +185,11 @@ flowchart LR
     target_y["Target y<br/>2"] --> loss_l
 ```
 
-The graph brings the forward calculations together. Follow the input through the hidden values to the predicted score, then to the loss. During learning, **backpropagation** follows these dependencies in reverse to calculate how sensitive the loss is to earlier values.[^4]
+The arrows show which values each calculation uses: the prediction depends on $h$, which depends on $z$, which depends on the input and hidden parameters. To improve the prediction, we need to determine how changing each parameter changes the final loss. **Backpropagation** calculates these sensitivities by following the dependencies in reverse, starting at the loss.[^4]
 
 ### 2. Backward pass: calculate sensitivities
 
-We now need to decide how each weight and bias should change. For one parameter $\theta$, the derivative of the loss tells you how the loss would change if you moved that parameter by a very small amount, keeping the others fixed. Write the proposed change as $\Delta\theta$, where the symbol $\Delta$ means “change in”:
+For one parameter $\theta$, the derivative $\partial L/\partial\theta$ tells you how the loss changes for a very small change in that parameter, keeping all other parameters fixed. The $\partial$ notation indicates that we are varying one quantity in a calculation that depends on several. Write the proposed parameter change as $\Delta\theta$, where $\Delta$ means “change in”:
 
 $$
 L(\theta+\Delta\theta)\approx L(\theta)
@@ -183,6 +203,8 @@ Start with the last operation. For half squared error, differentiating with resp
 $$
 \delta=\frac{\partial L}{\partial\hat y}=\hat y-y=1.5.
 $$
+
+We will also calculate derivatives with respect to whole arrays of weights or intermediate values. We collect these derivatives into an array called a **gradient**, with the same shape as the original array. For example, each entry of $\partial L/\partial W_2$ is the loss derivative with respect to the corresponding output weight. The same convention applies to $\partial L/\partial h$: each entry describes sensitivity to one hidden activation.
 
 Because $\delta$ is positive, lowering the prediction slightly would lower the loss. To work out how an output weight can do that, use the fact that a weight multiplies its hidden activation. A small change in the second output weight therefore changes the prediction by 1.5 times that change. Multiplying by $\delta$ gives a loss sensitivity of 2.25. The first output weight multiplies a zero activation, so its sensitivity is zero:
 
@@ -210,7 +232,7 @@ g_z=\frac{\partial L}{\partial z}
  =\begin{bmatrix}0\\3\end{bmatrix}.
 $$
 
-We can now reach the first layer's weights. Each weight contributes its input value to the derivative of its unit's preactivation. Multiply that input by the corresponding entry of $g_z$. This gives zero for both weights of the inactive first unit, and values 3 and 6 for the second unit's two weights:
+We can now calculate gradients for the hidden weights. Recall that unit $i$ computes $z_i=\sum_j(W_1)_{ij}x_j+(b_1)_i$. Increasing weight $(W_1)_{ij}$ by a small amount changes $z_i$ by $x_j$ times that amount. Its loss derivative is therefore the input $x_j$ multiplied by the corresponding loss sensitivity $(g_z)_i$. This gives zero for both weights of the inactive first unit, and values 3 and 6 for the second unit's two weights:
 
 $$
 \frac{\partial L}{\partial W_1}=g_zx^T
@@ -219,7 +241,7 @@ $$
  =\begin{bmatrix}0\\3\end{bmatrix}.
 $$
 
-The expression $g_zx^T$ is an **outer product**: each entry of the column vector $g_z$ multiplies every entry of the row vector $x^T$. Its shape is $(2\times1)(1\times2)=2\times2$, matching $W_1$. Together, the derivatives with respect to all entries of an array form its **gradient**. The gradient has the same shape as the parameter array, so each entry identifies the sensitivity of one parameter.
+The expression $g_zx^T$ is an **outer product**: each entry of the column vector $g_z$ multiplies every entry of the row vector $x^T$. Its shape is $(2\times1)(1\times2)=2\times2$, matching $W_1$. Each entry is the loss sensitivity for the weight in the same position in $W_1$.
 
 You can also trace one weight without the matrix notation. The subscript 22 in $(W_1)_{22}$ means the weight in row 2, column 2: the connection from the second input to the second hidden unit. To connect its change to the loss, multiply the sensitivities along its path. This is the **chain rule** for a composition of functions:
 
@@ -234,7 +256,7 @@ $$
 
 The product gives 6, matching the matrix calculation. It explains how a final prediction error can guide an early weight: the chain rule connects that weight to the error through the intervening operations. Backpropagation organises the calculations so shared intermediate sensitivities can be reused. When a value affects the loss along several paths, their derivative contributions are added.[^4]
 
-Notice the distinction between $\partial L/\partial h_1=1.5$ and $\partial L/\partial z_1=0$. Changing the hidden output would affect the loss, but small changes to its negative preactivation leave its ReLU output at zero. Its input weights therefore receive zero loss gradient from this example. Another example may activate it; one zero gradient does not establish that a unit is permanently inactive.
+Notice the distinction between $\partial L/\partial h_1=1.5$ and $\partial L/\partial z_1=0$. Changing the hidden output would affect the loss, but small changes to its negative preactivation leave its ReLU output at zero. Its input weights therefore receive zero loss gradient from this observation. Another observation may activate it; one zero gradient does not establish that a unit is permanently inactive.
 
 ### 3. Parameter update: use the gradients
 
@@ -269,11 +291,13 @@ $$
 
 The new prediction is below the target, but closer to it, so its squared error is smaller. This step succeeded for the chosen example and learning rate. A larger step could increase the loss because the derivative describes local behaviour, not the effect of an arbitrarily large change. Even a successful training update does not establish that predictions will improve on validation data.[^5]
 
-Notice what changed inside the network: for the same input, $h_2$ fell from $1.5$ to $0.6$. The update changed the intermediate feature as well as the weights that read that feature. The hidden representation and the final predictor were both adjusted to reduce the same loss.
+For the same observation, the learned feature $h_2$ fell from $1.5$ to $0.6$ because its hidden weights and bias changed. The output weights and bias also changed in this update. This is the joint feature learning described earlier: both the calculation that produces a hidden feature and the calculation that uses it for prediction are adjusted from the same loss.
 
 ## ⚙️ Computation graphs and automatic differentiation
 
-A computation graph records which operations produced each value. Each operation has a forward calculation and a rule for passing derivatives back to its inputs. Once those rules are available, software can combine them using the chain rule, following the same reasoning we used by hand. This process is called **automatic differentiation (AD)**. PyTorch provides it through its autograd system.[^6]
+We calculated nine parameter derivatives by hand. A larger network may contain millions of parameters, so repeating that process manually would be impractical. The computation graph provides a way to automate it: it records which operations produced each value, as in the forward-pass diagram above.
+
+For each operation, software implements both the forward calculation and a rule for calculating derivatives with respect to its inputs. Combining those rules through the chain rule is called **automatic differentiation (AD)**. Backpropagation is the reverse-mode use of AD for calculating a loss's parameter gradients, following the dependencies from output toward input. PyTorch provides this through its autograd system.[^6]
 
 AD does not estimate every derivative by repeatedly nudging parameters and measuring the loss. It applies derivative rules to the operations in the graph. It also does not need to simplify the whole network into one symbolic expression before differentiating it.
 
@@ -289,7 +313,7 @@ for each training batch X, Y:
     update those parameters using the chosen optimiser
 ```
 
-For the batch loss shown here, you average the per-example losses. Differentiating that average also averages the examples' gradient contributions. Our numerical example has $B=1$, so there is only one contribution. In a larger batch, another example may activate a unit that was inactive for this one and give its weights a nonzero gradient.
+For the batch loss shown here, you average the losses of the $B$ observations. Differentiating that average also averages their gradient contributions. Our numerical example has $B=1$, so there is only one contribution. In a larger batch, another observation may activate a unit that was inactive for this one and give its weights a nonzero gradient.
 
 When you read a PyTorch training loop, `loss.backward()` is the gradient calculation. The optimiser's update is a separate operation. The pseudocode clears old gradients because PyTorch accumulates parameter gradients unless you clear them.[^6]
 
@@ -308,7 +332,7 @@ Backpropagation computes gradients for an objective and graph. It does not choos
 
 ## ⚖️ Width, depth and engineering choices
 
-Increasing **width**, the number of units in a hidden layer, gives that stage more intermediate responses to work with. It also adds weights. For $d$ inputs, one hidden layer of width $m$ and one output, count the input weights, hidden biases, output weights and output bias in that order:
+The worked network used two hidden units, but we could choose a different number of units or add another hidden layer. These choices change the network's **width** and **depth**. Width is the number of units in a layer. Increasing hidden width gives the output layer more learned features to combine, but adds trainable parameters. For $d$ input features, one hidden layer of width $m$ and one output unit, count the hidden weights, hidden biases, output weights and output bias in that order:
 
 $$
 dm+m+m+1=m(d+2)+1.
@@ -318,14 +342,14 @@ Increasing **depth** adds successive learned transformations. An extra nonlinear
 
 Width and depth therefore offer different ways to represent a function. Neither guarantees a better fitted model. A useful design must also be trainable with the available data and resources, and its predictions must hold up under validation.
 
-The engineering constraint is visible in a simple calculation. Flattening a $64\times64$ RGB image produces $12{,}288$ inputs. Connecting these to $128$ hidden units requires $12{,}288\times128+128=1{,}572{,}992$ parameters in the first layer alone. It also gives each pixel location its own weights. The dense layer does not require nearby pixels to share a detector. Module 4 will introduce a different structural assumption through convolution.
+Parameter cost matters if we replace our two engineered input features with image pixels. A $64\times64$ RGB image has three colour values at each pixel location. Arranging those values into one input vector, called **flattening**, produces $64\times64\times3=12{,}288$ input features. Connecting them to $128$ hidden units requires $12{,}288\times128+128=1{,}572{,}992$ parameters in the hidden layer alone. Each input position has its own weights, so learning to respond to a scratch in one location does not require the dense layer to use the same calculation elsewhere. Module 4 will explain how convolution reuses the same weights across spatial locations.
 
-For the inspection task, keep the simpler models as baselines. If a few descriptors capture the useful information, learning many intermediate features may add complexity without improving validation performance. If you need to learn from image structure, a dense network's separate weight for every pixel position may be a poor fit. The following choices are starting judgements to test, not claims that one method will win:
+For the inspection task, keep simpler models as baselines. If a few engineered input features capture the useful information, learning many additional features may add complexity without improving validation performance. If you need to learn from image structure, a dense network's separate weight for every pixel position may be a poor fit. The following choices are starting judgements to test, not claims that one method will win:
 
 | Situation | Reasonable starting choice | Main limitation to examine |
 | --- | --- | --- |
-| Few descriptors; approximately additive relationship | Linear model with suitable transforms | Missed nonlinear structure |
-| Tabular descriptors; useful conditional interactions | Boosted-tree baseline | Fit to validation setting and deployment needs |
+| Few engineered features; approximately additive relationship | Linear model with suitable transforms | Missed nonlinear structure |
+| Tabular input features; useful conditional interactions | Boosted-tree baseline | Fit to validation setting and deployment needs |
 | Jointly learned continuous transformations are useful | MLP | Trainability, data sufficiency and parameter cost |
 | Spatial structure is central | Compare with a convolutional model | Whether locality and sharing suit the task |
 
@@ -335,11 +359,11 @@ A network's features are shaped by what helps reduce the training objective. If 
 
 A feedforward network makes a prediction through a sequence of transformations, with information moving from input to output. Its nonlinearities let the prediction respond differently in different input regions. During learning, the chain rule connects the final loss to the weights in those earlier transformations, allowing the hidden features and the output predictor to change together.
 
-Keep the three stages distinct: the forward pass calculates values, the backward pass calculates derivatives, and the optimiser changes parameters. The worked example showed why the distinction matters: an inactive ReLU can block a weight's loss gradient for one example even when changing the unit's output would affect the prediction. Module 2 builds on this mechanism to explain why some networks are harder to train and what can make them more trainable.
+Keep the three stages distinct: the forward pass calculates values, the backward pass calculates derivatives, and the optimiser changes parameters. The worked example showed why the distinction matters: an inactive ReLU can block a weight's loss gradient for one observation even when changing the unit's output would affect the prediction. Module 2 builds on this mechanism to explain why some networks are harder to train and what can make them more trainable.
 
 ## 📚 References
 
-The numerical example and derivations are original teaching material. The sources below explain the underlying mechanisms and the PyTorch interfaces mentioned in the lesson. Sources were accessed on **1 November 2026**; the example is illustrative and does not report results from a fitted inspection model.
+The numerical example and derivations are original teaching material. The sources below explain the underlying mechanisms and the PyTorch interfaces mentioned in the lesson. Sources were rechecked on **2 November 2026**; the example is illustrative and does not report results from a fitted inspection model.
 
 [^1]: Goodfellow, I., Bengio, Y. and Courville, A. (2016). *Deep Learning*, Chapter 6, introduction and feature-learning discussion. [Deep feedforward networks](https://www.deeplearningbook.org/contents/mlp.html).
 [^2]: Stanford CS231n. Undated course notes. [Neural networks, Part 1: architecture, activations and representational power](https://cs231n.github.io/neural-networks-1/).
