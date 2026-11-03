@@ -1,6 +1,6 @@
 # Module 1 — From conventional ML to differentiable models
 
-_Week 1 · Core lesson · Authored 1 November 2026 · Revised 2 November 2026_
+_Week 1 · Core lesson · Authored 1 November 2026 · Revised 3 November 2026_
 
 [Read the formatted HTML lesson](01-from-conventional-ml-to-differentiable-models.html).
 
@@ -200,15 +200,55 @@ $$
 
 The approximation says: start with the current loss, then add the derivative multiplied by the proposed change. A positive derivative means that increasing the parameter slightly will increase the loss locally, so a small decrease is a plausible way to reduce it. The derivative describes behaviour near the current parameter value; it is not a general importance score.
 
-Start with the last operation. For half squared error, differentiating with respect to the prediction leaves the prediction error itself. We will call this output sensitivity $\delta$:
+Start with the last operation, $L=\tfrac12(\hat y-y)^2$. Hold the target $y=2$ fixed and vary the prediction. Differentiating the square supplies a factor of 2, which cancels the factor $1/2$; the derivative of $\hat y-y$ with respect to $\hat y$ is 1. We will call the resulting loss sensitivity to the prediction $\delta$:
 
 $$
 \delta=\frac{\partial L}{\partial\hat y}=\hat y-y=1.5.
 $$
 
-We will also calculate derivatives with respect to whole arrays of weights or intermediate values. We collect these derivatives into an array called a **gradient**, with the same shape as the original array. For example, each entry of $\partial L/\partial W_2$ is the loss derivative with respect to the corresponding output weight. The same convention applies to $\partial L/\partial h$: each entry describes sensitivity to one hidden activation.
+Because $\delta$ is positive, lowering the prediction slightly would lower the loss. But we adjust weights, not the prediction directly. To connect a weight change to the loss, first work out how that weight changes the prediction, then how the prediction changes the loss.
 
-Because $\delta$ is positive, lowering the prediction slightly would lower the loss. To work out how an output weight can do that, use the fact that a weight multiplies its hidden activation. A small change in the second output weight therefore changes the prediction by 1.5 times that change. Multiplying by $\delta$ gives a loss sensitivity of 2.25. The first output weight multiplies a zero activation, so its sensitivity is zero:
+Consider the second output weight, the entry in row 1, column 2 of $W_2$. Call this scalar $w_2=(W_2)_{12}$; its current value is 2. Expand the output equation so its contribution is visible:
+
+$$
+\hat y=(W_2)_{11}h_1+w_2h_2+b_2
+      =1(0)+w_2(1.5)+0.5.
+$$
+
+Hold the hidden activations, output bias and other output weight fixed, and change only $w_2$ by $\Delta w_2$. The change affects just the term $w_2h_2$. Subtracting the old prediction from the new one gives:
+
+$$
+\Delta\hat y=(w_2+\Delta w_2)h_2-w_2h_2
+             =h_2\Delta w_2=1.5\Delta w_2.
+$$
+
+This relationship is exact because the output is linear in $w_2$ when the other values are fixed. For instance, increasing $w_2$ from 2 to 2.01 gives $\Delta w_2=0.01$, so the prediction increases by $1.5(0.01)=0.015$, from 3.5 to 3.515. This is why $\partial\hat y/\partial w_2=h_2=1.5$: it is the prediction change per unit change in this weight.
+
+Now connect that prediction change to the loss. For a small change, the derivative $\delta$ gives the first-order approximation:
+
+$$
+\Delta L\approx\delta\,\Delta\hat y
+             =\delta h_2\Delta w_2.
+$$
+
+For the illustrative change of 0.01, the predicted loss increase is $1.5(0.015)=0.0225$. Recomputing the squared error gives an actual increase of $\tfrac12(3.515-2)^2-1.125=0.0226125$. The small difference comes from the square: the derivative describes the local rate of change, whereas this calculation uses a finite change.
+
+The 0.01 change was a hypothetical check, not a training update. All derivatives below are evaluated at the original parameter values, including $w_2=2$; we will collect them before updating the network.
+
+The coefficient of $\Delta w_2$ in the approximation is the loss derivative for this weight. Multiplying the two successive rates of change is the **chain rule**:
+
+$$
+\frac{\partial L}{\partial w_2}
+=\frac{\partial L}{\partial\hat y}
+ \frac{\partial\hat y}{\partial w_2}
+=\delta h_2=1.5(1.5)=2.25.
+$$
+
+The two factors happen to have the same numerical value here, but they mean different things. The first, $\delta=\hat y-y=1.5$, measures how the loss responds to the prediction. The second, $h_2=1.5$, measures how the prediction responds to $w_2$. Their product measures how the loss responds to $w_2$.
+
+The first output weight multiplies $h_1=0$, so changing that weight alone leaves the prediction unchanged for this observation; its loss derivative is zero. Increasing $b_2$ changes the prediction by exactly the same amount, so its loss derivative is $\delta(1)=1.5$.
+
+We collect the loss derivatives for all entries of a parameter array into an array of the same shape, called its **gradient**. Each entry of $\partial L/\partial W_2$ therefore refers to the output weight in the corresponding position. The output-weight gradient and output-bias derivative are:
 
 $$
 \frac{\partial L}{\partial W_2}=\delta h^T
@@ -216,14 +256,16 @@ $$
 \frac{\partial L}{\partial b_2}=\delta=1.5.
 $$
 
-Changing the output bias changes the prediction by the same amount, which is why its derivative is just $\delta$. To continue into the hidden layer, ask how changing each hidden activation would change the prediction. Its output weight supplies that sensitivity, so multiplying the output weights by $\delta$ gives:
+To continue into the hidden layer, treat $h_2$ as the variable in the output equation while keeping the output weights, output bias and $h_1$ fixed. The term $w_2h_2$ now gives $\Delta\hat y=w_2\Delta h_2=2\Delta h_2$. Multiplying by the loss sensitivity $\delta=1.5$ gives $\partial L/\partial h_2=1.5(2)=3$. The first hidden activation has output weight 1, so its loss derivative is $1.5(1)=1.5$. Collecting these sensitivities gives the gradient with respect to $h$, with one entry per hidden activation:
 
 $$
 \frac{\partial L}{\partial h}=W_2^T\delta
  =\begin{bmatrix}1.5\\3\end{bmatrix}.
 $$
 
-Next, pass those sensitivities through ReLU. For a negative preactivation, a small change leaves the activation at zero, so the derivative is $0$. For a positive preactivation, ReLU passes the change through unchanged, so the derivative is $1$. At zero, ReLU has a corner and no unique derivative; an implementation must choose a convention. Neither preactivation here is zero.
+Next, connect each preactivation to its hidden activation through ReLU. The second unit has $z_2=1.5>0$, so $h_2=z_2$. As long as the change does not cross zero, $\Delta h_2=\Delta z_2$: the derivative is 1. We already know that the loss sensitivity to $h_2$ is 3, so the loss sensitivity to $z_2$ is $3(1)=3$.
+
+For the first unit, $z_1=-1$. A small change that keeps $z_1$ negative leaves $h_1=0$, so $\Delta h_1=0$ and the ReLU derivative is 0. The loss sensitivity to $z_1$ is therefore $1.5(0)=0$. At zero, ReLU has a corner and no unique derivative; an implementation must choose a convention. Neither preactivation here is zero.
 
 Multiply each activation sensitivity by the derivative of its own ReLU. Denote the resulting preactivation sensitivities by $g_z$, and use $\odot$ for elementwise multiplication:
 
@@ -234,7 +276,9 @@ g_z=\frac{\partial L}{\partial z}
  =\begin{bmatrix}0\\3\end{bmatrix}.
 $$
 
-We can now calculate gradients for the hidden weights. Recall that unit $i$ computes $z_i=\sum_j(W_1)_{ij}x_j+(b_1)_i$. Increasing weight $(W_1)_{ij}$ by a small amount changes $z_i$ by $x_j$ times that amount. Its loss derivative is therefore the input $x_j$ multiplied by the corresponding loss sensitivity $(g_z)_i$. This gives zero for both weights of the inactive first unit, and values 3 and 6 for the second unit's two weights:
+We can now reach a hidden weight by the same two-step reasoning. Consider $(W_1)_{22}$, the connection from input $x_2$ to hidden unit 2. The unit computes $z_2=(W_1)_{21}x_1+(W_1)_{22}x_2+(b_1)_2$. Holding the inputs and other parameters fixed, changing this weight changes $z_2$ by $x_2=2$ times the weight change. Since the loss sensitivity to $z_2$ is 3, the loss derivative for this weight is $3(2)=6$.
+
+For unit 2's first weight, the input multiplier is $x_1=1$, giving derivative $3(1)=3$. Each hidden bias changes its unit's preactivation by the same amount, so its derivative is that unit's preactivation sensitivity. Both weights and the bias of unit 1 receive zero loss derivative because its ReLU output does not change for these small perturbations. In general, the derivative for hidden weight $(W_1)_{ij}$ is $(g_z)_i x_j$. Collecting those entries gives:
 
 $$
 \frac{\partial L}{\partial W_1}=g_zx^T
@@ -245,7 +289,7 @@ $$
 
 The expression $g_zx^T$ is an **outer product**: each entry of the column vector $g_z$ multiplies every entry of the row vector $x^T$. Its shape is $(2\times1)(1\times2)=2\times2$, matching $W_1$. Each entry is the loss sensitivity for the weight in the same position in $W_1$.
 
-You can also trace one weight without the matrix notation. The subscript 22 in $(W_1)_{22}$ means the weight in row 2, column 2: the connection from the second input to the second hidden unit. To connect its change to the loss, multiply the sensitivities along its path. This is the **chain rule** for a composition of functions:
+The derivative for $(W_1)_{22}$ can also be written as one complete chain from the weight to the loss. Each factor is a rate of change for one link that we have just calculated:
 
 $$
 \frac{\partial L}{\partial(W_1)_{22}}

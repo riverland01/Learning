@@ -32,7 +32,7 @@ figure{margin:30px 0} .diagram-scroll{overflow:auto;max-width:100%;padding:18px 
 .chapter-list{list-style:none;padding:0;margin:0;counter-reset:none}.chapter-list>li{margin:0;padding:25px 0 27px;border-bottom:1px solid var(--line)}.chapter-topline{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font:12px/1.5 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:9px}.chapter-list h3{font-size:22px;margin:0 0 10px;line-height:1.4}.chapter-list h3 a{text-decoration:none}.chapter-list h3 a:hover{text-decoration:underline}.chapter-list p{font-size:18px;line-height:1.65;margin:0}.chapter-status{font:13px/1.5 system-ui,sans-serif;color:var(--muted);margin-top:13px}.chapter-status.available{color:var(--accent);font-weight:650}.elective-list{padding-left:22px;font-size:18px}.elective-list li{margin:13px 0}.elective-list strong{font-family:system-ui,sans-serif;font-size:16px}.start-link{display:inline-block;background:var(--accent);color:#fffefa;padding:10px 18px;border-radius:3px;font:600 14px/1.5 system-ui,sans-serif;text-decoration:none;margin:4px 0 8px}.start-link:hover{background:#11474d}
 @media(max-width:800px){.course-intro{font-size:19px}.chapter-list h3{font-size:21px}}@media print{.start-link{background:none;color:inherit;padding:0}.chapter-list>li{break-inside:avoid}}
 
-</style></head><body><a class="skip" href="#lesson">Skip to lesson</a><div class="layout"><aside><p class="brand">Personal learning library</p><p class="nav-label" id="contents-label">In this module</p><nav aria-labelledby="contents-label"><ol><li><a href="#outcomes-and-starting-point">Outcomes and starting point</a></li><li><a href="#why-a-larger-network-can-fit-the-training-data-worse">Why a larger network can fit the training data worse</a></li><li><a href="#depth-multiplies-the-factors-that-carry-a-gradient">Depth multiplies the factors that carry a gradient</a></li><li><a href="#initialisation-sets-the-scale-at-which-learning-begins">Initialisation sets the scale at which learning begins</a></li><li><a href="#the-optimiser-turns-derivatives-into-parameter-changes">The optimiser turns derivatives into parameter changes</a></li><li><a href="#normalisation-controls-intermediate-values">Normalisation controls intermediate values</a></li><li><a href="#residual-connections-change-the-path-through-the-model">Residual connections change the path through the model</a></li><li><a href="#regularisation-changes-what-training-is-encouraged-to-learn">Regularisation changes what training is encouraged to learn</a></li><li><a href="#worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives">Worked diagnosis: make a hypothesis distinguishable from alternatives</a></li><li><a href="#what-to-carry-into-representation-learning">What to carry into representation learning</a></li><li><a href="#references">References</a></li></ol></nav><div class="side-footer">Deep learning · Week 2<a href="../index.html">Course contents</a><a href="01-from-conventional-ml-to-differentiable-models.html">Previous: Module 1</a><a href="../CURRICULUM.md">Course curriculum</a><a href="../PROGRESS.md">Learning progress</a></div></aside><main id="lesson"><header><p class="course-back"><a href="../index.html">← Course contents</a></p><p class="eyebrow">Deep learning / Module 02</p><h1>Making networks trainable</h1><p class="meta">Core lesson · Week 2 · Authored 2 November 2026</p></header><article><section aria-labelledby="outcomes-and-starting-point"><h2 id="outcomes-and-starting-point">Outcomes and starting point</h2>
+</style></head><body><a class="skip" href="#lesson">Skip to lesson</a><div class="layout"><aside><p class="brand">Personal learning library</p><p class="nav-label" id="contents-label">In this module</p><nav aria-labelledby="contents-label"><ol><li><a href="#outcomes-and-starting-point">Outcomes and starting point</a></li><li><a href="#why-a-larger-network-can-fit-the-training-data-worse">Why a larger network can fit the training data worse</a></li><li><a href="#depth-multiplies-the-factors-that-carry-a-gradient">Depth multiplies the factors that carry a gradient</a></li><li><a href="#initialisation-sets-the-scale-at-which-learning-begins">Initialisation sets the scale at which learning begins</a></li><li><a href="#the-optimiser-turns-derivatives-into-parameter-changes">The optimiser turns derivatives into parameter changes</a></li><li><a href="#normalisation-controls-intermediate-values">Normalisation controls intermediate values</a></li><li><a href="#residual-connections-change-the-path-through-the-model">Residual connections change the path through the model</a></li><li><a href="#regularisation-changes-what-training-is-encouraged-to-learn">Regularisation changes what training is encouraged to learn</a></li><li><a href="#worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives">Worked diagnosis: make a hypothesis distinguishable from alternatives</a></li><li><a href="#what-to-carry-into-representation-learning">What to carry into representation learning</a></li><li><a href="#references">References</a></li></ol></nav><div class="side-footer">Deep learning · Week 2<a href="../index.html">Course contents</a><a href="01-from-conventional-ml-to-differentiable-models.html">Previous: Module 1</a><a href="../CURRICULUM.md">Course curriculum</a><a href="../PROGRESS.md">Learning progress</a></div></aside><main id="lesson"><header><p class="course-back"><a href="../index.html">← Course contents</a></p><p class="eyebrow">Deep learning / Module 02</p><h1>Making networks trainable</h1><p class="meta">Core lesson · Week 2 · Revised 3 November 2026</p></header><article><section aria-labelledby="outcomes-and-starting-point"><h2 id="outcomes-and-starting-point">Outcomes and starting point</h2>
 <p>Module 1 showed how a network calculates a prediction, how
 backpropagation calculates gradients, and how a parameter update uses
 those gradients. Here we ask what happens when those operations are
@@ -85,7 +85,7 @@ updates; some components, notably batch normalisation and dropout, also
 change behaviour between training and inference.</p>
 <p>A useful first distinction is between two problems you already
 recognise from conventional machine learning:</p>
-<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
 <colgroup>
 <col style="width: 33%"/>
 <col style="width: 33%"/>
@@ -178,8 +178,42 @@ is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><msub><mi>h</mi><mi>L</mi></msub><mo>+</mo><msub><mi>b</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat y=W_{\mathrm{out}}h_L+b_{\mathrm{out}}</annotation></semantics></math>,
 and its loss is the scalar
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ℒ</mi><annotation encoding="application/x-tex">\mathcal L</annotation></semantics></math>.</p>
-<p>To update an early weight, backpropagation needs to know how changing
-its layer’s output changes the final loss. Define
+<p>To update an early weight, we need to connect its change to the final
+loss. First consider one illustrative connection: a hidden activation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>a</mi><annotation encoding="application/x-tex">a</annotation></semantics></math>
+enters a later unit whose preactivation is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><mn>2</mn><mi>a</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z=2a+b</annotation></semantics></math>.
+Holding the connecting weight 2, the bias and the other inputs fixed, a
+change
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>a</mi></mrow><annotation encoding="application/x-tex">\Delta a</annotation></semantics></math>
+produces
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>z</mi><mo>=</mo><mn>2</mn><mi mathvariant="normal">Δ</mi><mi>a</mi></mrow><annotation encoding="application/x-tex">\Delta z=2\Delta a</annotation></semantics></math>.
+Suppose the loss derivative at this later preactivation is 3. Then</p>
+<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>ℒ</mi><mo>≈</mo><mn>3</mn><mi mathvariant="normal">Δ</mi><mi>z</mi><mo>=</mo><mn>3</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mi mathvariant="normal">Δ</mi><mi>a</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>6</mn><mi mathvariant="normal">Δ</mi><mi>a</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\Delta\mathcal L\approx3\Delta z=3(2\Delta a)=6\Delta a.
+</annotation></semantics></math></div>
+<p>Thus the loss derivative with respect to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>a</mi><annotation encoding="application/x-tex">a</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>3</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">3\times2=6</annotation></semantics></math>.
+The weight supplies the rate from activation to later preactivation;
+multiplying by the later loss derivative connects that activation to the
+loss. These numbers illustrate the calculation, not fitted network
+values. If the activation is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo>=</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mi>s</mi><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">a=\operatorname{ReLU}(s)</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>
+is its preactivation, we must also multiply by the activation
+derivative: at positive
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>
+it is 1, giving a derivative of 6 with respect to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>;
+at negative
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>
+it is 0, giving zero. If the activation feeds several later units, add
+the contributions through those connections.</p>
+<p>The matrix equation below collects these same per-connection
+calculations for a whole layer. Define
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>ℓ</mi></msub><mo>=</mo><mi>∂</mi><mi>ℒ</mi><mi>/</mi><mi>∂</mi><msub><mi>z</mi><mi>ℓ</mi></msub></mrow><annotation encoding="application/x-tex">\delta_\ell=\partial\mathcal L/\partial z_\ell</annotation></semantics></math>:
 entry
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
@@ -195,12 +229,22 @@ For adjacent hidden layers, the chain rule gives</p>
 </annotation></semantics></math></div>
 <p>The symbol
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>⊙</mi><annotation encoding="application/x-tex">\odot</annotation></semantics></math>
-means entrywise multiplication. The transpose sends the later layer’s
-derivatives back to the units that contributed to it. Multiplication by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ϕ</mi><mo>′</mo></msup><mo form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mi>ℓ</mi></msub><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\phi'(z_\ell)</annotation></semantics></math>
-then accounts for how each activation changes with its preactivation.
-Repeating this relation multiplies many weight-dependent transformations
-and activation derivatives.<a href="#ref-1">1</a></p>
+means entrywise multiplication. Entry
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>W</mi><mrow><mi>ℓ</mi><mo>+</mo><mn>1</mn></mrow><mi>T</mi></msubsup><msub><mi>δ</mi><mrow><mi>ℓ</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">W_{\ell+1}^{T}\delta_{\ell+1}</annotation></semantics></math>
+sums the later units’ loss derivatives multiplied by their connecting
+weights from activation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.
+Multiplying that sum by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ϕ</mi><mo>′</mo></msup><mo form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mi>ℓ</mi></msub><msub><mo form="postfix" stretchy="false">)</mo><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\phi'(z_\ell)_i</annotation></semantics></math>
+accounts for how activation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+changes with its preactivation. This is the same multiplication by 2 and
+then by the ReLU derivative in the scalar example, with contributions
+summed where there are several connections. Repeating this calculation
+explains how early-layer gradients accumulate products of weights and
+activation derivatives.<a href="#ref-1">1</a></p>
 <p>For one observation, the corresponding weight gradient is</p>
 <div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>ℒ</mi></mrow><mrow><mi>∂</mi><msub><mi>W</mi><mi>ℓ</mi></msub></mrow></mfrac><mo>=</mo><msub><mi>δ</mi><mi>ℓ</mi></msub><msubsup><mi>h</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow><mi>T</mi></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \frac{\partial\mathcal L}{\partial W_\ell}
@@ -496,7 +540,7 @@ The same numerical learning rate therefore does not imply the same
 parameter change across optimisers. Start with the intended
 implementation’s documented retention settings and compare changes when
 training behaviour warrants them.<a href="#ref-3">3</a>,<a href="#ref-13">13</a></p>
-<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
 <colgroup>
 <col style="width: 33%"/>
 <col style="width: 33%"/>
@@ -684,7 +728,7 @@ mean and variance across the
 features separately for each observation and position. It does not
 automatically normalise across time. Always identify the actual axes:
 “normalise the layer” alone does not specify the operation.</p>
-<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
 <colgroup>
 <col style="width: 33%"/>
 <col style="width: 33%"/>
@@ -754,13 +798,29 @@ This gives the parameterised block a direct way to preserve an existing
 representation while learning a change. It helps explain why simply
 adding depth need not require every new block to relearn how to pass
 useful information onward.<a href="#ref-7">7</a></p>
-<p>The derivative also has an additive route. Define
+<p>To see the derivative through a residual addition, first consider a
+single scalar input with an illustrative branch
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo form="prefix" stretchy="false">(</mo><mi>h</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0.2</mn><mi>h</mi></mrow><annotation encoding="application/x-tex">F(h)=0.2h</annotation></semantics></math>.
+The output is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><mi>h</mi><mo>+</mo><mn>0.2</mn><mi>h</mi><mo>=</mo><mn>1.2</mn><mi>h</mi></mrow><annotation encoding="application/x-tex">h_{\mathrm{next}}=h+0.2h=1.2h</annotation></semantics></math>,
+so a change
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">\Delta h</annotation></semantics></math>
+produces
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1.2</mn><mi mathvariant="normal">Δ</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">1.2\Delta h</annotation></semantics></math>
+at the output. If the loss derivative there is 3, the input loss
+derivative is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>3</mn><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>+</mo><mn>0.2</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>3</mn><mo>+</mo><mn>0.6</mn><mo>=</mo><mn>3.6</mn></mrow><annotation encoding="application/x-tex">3(1+0.2)=3+0.6=3.6</annotation></semantics></math>.
+The direct addition contributes 3 and the learned branch contributes
+0.6. These contributions add because the same input affects both
+terms.</p>
+<p>For vectors, the following equation collects those contributions.
+Define
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>J</mi><mi>F</mi></msub><annotation encoding="application/x-tex">J_F</annotation></semantics></math>
 as the matrix whose entry
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(i,j)</annotation></semantics></math>
 is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><msub><mi>F</mi><mi>i</mi></msub><mi>/</mi><mi>∂</mi><msub><mi>h</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\partial F_i/\partial h_j</annotation></semantics></math>,
-and let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><msub><mi>F</mi><mi>i</mi></msub><mi>/</mi><mi>∂</mi><msub><mi>h</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\partial F_i/\partial h_j</annotation></semantics></math>:
+it describes how each branch output changes with each input entry. Let
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
 be the identity matrix. If
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">g_{\mathrm{next}}</annotation></semantics></math>
@@ -956,7 +1016,7 @@ approximation derived earlier, each width-64 ReLU layer multiplies the
 activation second moment by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.08</mn><annotation encoding="application/x-tex">0.08</annotation></semantics></math>.
 With input second moment 1, the predicted progression is:</p>
-<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
 <colgroup>
 <col style="width: 27%"/>
 <col style="width: 36%"/>
@@ -1041,7 +1101,7 @@ hypothesis loses support; changing more components at once would hide
 that result.</p>
 <h3 id="choose-the-next-intervention-from-the-remaining-evidence">Choose
 the next intervention from the remaining evidence</h3>
-<div aria-label="Lesson table; scroll horizontally if needed" class="table-scroll" role="region" tabindex="0"><table>
+<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
 <colgroup>
 <col style="width: 33%"/>
 <col style="width: 33%"/>

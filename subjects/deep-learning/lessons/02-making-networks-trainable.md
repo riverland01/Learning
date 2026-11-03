@@ -1,6 +1,6 @@
 # Module 2 — Making networks trainable
 
-_Week 2 · Core lesson · Authored and revised 2 November 2026_
+_Week 2 · Core lesson · Authored 2 November 2026 · Revised 3 November 2026_
 
 [Read the formatted HTML lesson](02-making-networks-trainable.html) · [Course contents](../index.html) · [Previous: Module 1](01-from-conventional-ml-to-differentiable-models.html)
 
@@ -47,7 +47,15 @@ $$
 
 Here, $W_\ell$ and $b_\ell$ are that layer's weights and biases; $z_\ell$ contains its preactivations; and $\phi$ applies an activation function entry by entry. If layer $\ell-1$ has $n_{\ell-1}$ units and layer $\ell$ has $n_\ell$, then $W_\ell$ has shape $n_\ell\times n_{\ell-1}$ and $h_\ell$ has $n_\ell$ entries. Input values and activations depend on the observation; the same parameters are reused for every observation. The final prediction is $\hat y=W_{\mathrm{out}}h_L+b_{\mathrm{out}}$, and its loss is the scalar $\mathcal L$.
 
-To update an early weight, backpropagation needs to know how changing its layer's output changes the final loss. Define $\delta_\ell=\partial\mathcal L/\partial z_\ell$: entry $i$ is the loss's derivative with respect to preactivation $i$ in layer $\ell$. For adjacent hidden layers, the chain rule gives
+To update an early weight, we need to connect its change to the final loss. First consider one illustrative connection: a hidden activation $a$ enters a later unit whose preactivation is $z=2a+b$. Holding the connecting weight 2, the bias and the other inputs fixed, a change $\Delta a$ produces $\Delta z=2\Delta a$. Suppose the loss derivative at this later preactivation is 3. Then
+
+$$
+\Delta\mathcal L\approx3\Delta z=3(2\Delta a)=6\Delta a.
+$$
+
+Thus the loss derivative with respect to $a$ is $3\times2=6$. The weight supplies the rate from activation to later preactivation; multiplying by the later loss derivative connects that activation to the loss. These numbers illustrate the calculation, not fitted network values. If the activation is $a=\operatorname{ReLU}(s)$, where $s$ is its preactivation, we must also multiply by the activation derivative: at positive $s$ it is 1, giving a derivative of 6 with respect to $s$; at negative $s$ it is 0, giving zero. If the activation feeds several later units, add the contributions through those connections.
+
+The matrix equation below collects these same per-connection calculations for a whole layer. Define $\delta_\ell=\partial\mathcal L/\partial z_\ell$: entry $i$ is the loss's derivative with respect to preactivation $i$ in layer $\ell$. For adjacent hidden layers, the chain rule gives
 
 $$
 \delta_\ell=
@@ -55,7 +63,7 @@ $$
 \odot\phi'(z_\ell).
 $$
 
-The symbol $\odot$ means entrywise multiplication. The transpose sends the later layer's derivatives back to the units that contributed to it. Multiplication by $\phi'(z_\ell)$ then accounts for how each activation changes with its preactivation. Repeating this relation multiplies many weight-dependent transformations and activation derivatives.[1](#ref-1)
+The symbol $\odot$ means entrywise multiplication. Entry $i$ of $W_{\ell+1}^{T}\delta_{\ell+1}$ sums the later units' loss derivatives multiplied by their connecting weights from activation $i$. Multiplying that sum by $\phi'(z_\ell)_i$ accounts for how activation $i$ changes with its preactivation. This is the same multiplication by 2 and then by the ReLU derivative in the scalar example, with contributions summed where there are several connections. Repeating this calculation explains how early-layer gradients accumulate products of weights and activation derivatives.[1](#ref-1)
 
 For one observation, the corresponding weight gradient is
 
@@ -225,7 +233,9 @@ $$
 
 The two terms must have the same shape. When they do, a zero residual branch gives the identity map $h_{\mathrm{next}}=h$. This gives the parameterised block a direct way to preserve an existing representation while learning a change. It helps explain why simply adding depth need not require every new block to relearn how to pass useful information onward.[7](#ref-7)
 
-The derivative also has an additive route. Define $J_F$ as the matrix whose entry $(i,j)$ is $\partial F_i/\partial h_j$, and let $I$ be the identity matrix. If $g_{\mathrm{next}}$ is the column-vector loss gradient at the block output, the input gradient is
+To see the derivative through a residual addition, first consider a single scalar input with an illustrative branch $F(h)=0.2h$. The output is $h_{\mathrm{next}}=h+0.2h=1.2h$, so a change $\Delta h$ produces $1.2\Delta h$ at the output. If the loss derivative there is 3, the input loss derivative is $3(1+0.2)=3+0.6=3.6$. The direct addition contributes 3 and the learned branch contributes 0.6. These contributions add because the same input affects both terms.
+
+For vectors, the following equation collects those contributions. Define $J_F$ as the matrix whose entry $(i,j)$ is $\partial F_i/\partial h_j$: it describes how each branch output changes with each input entry. Let $I$ be the identity matrix. If $g_{\mathrm{next}}$ is the column-vector loss gradient at the block output, the input gradient is
 
 $$
 g_h=(I+J_F)^Tg_{\mathrm{next}}
