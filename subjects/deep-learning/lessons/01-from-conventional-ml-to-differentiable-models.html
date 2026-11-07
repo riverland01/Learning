@@ -758,8 +758,7 @@ and the ReLU derivative is 0. The loss sensitivity to
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mn>1</mn></msub><annotation encoding="application/x-tex">z_1</annotation></semantics></math>
 is therefore
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1.5</mn><mo form="prefix" stretchy="false">(</mo><mn>0</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">1.5(0)=0</annotation></semantics></math>.
-At zero, ReLU has a corner and no unique derivative; an implementation
-must choose a convention. Neither preactivation here is zero.</p>
+At zero, ReLU has a corner, so its mathematical derivative is undefined. For backpropagation, we use 0 as the local slope at zero. This makes the gradient through ReLU zero when the preactivation is zero or negative. Both preactivations in this example are nonzero, so the convention does not affect the calculation.</p>
 <p>Multiply each activation sensitivity by the derivative of its own
 ReLU. Denote the resulting preactivation sensitivities by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mi>z</mi></msub><annotation encoding="application/x-tex">g_z</annotation></semantics></math>,
