@@ -22,7 +22,7 @@ One reason training can stall is that later layers can dampen changes made by ea
 
 Initialisation sets the starting parameter values. Four components then determine how each training step works. **The architecture** specifies the forward computation. **The objective** scores its predictions. **Backpropagation** differentiates that objective through the computation. **The optimiser** uses the gradients and its stored state to update parameters. Training therefore depends on more than whether the forward pass returns an output or the loss has a derivative.
 
-As the model designer, you choose the number and width of the layers, the initialisation rule and the optimiser settings. These are **hyperparameters**, as is the dropout probability introduced later. Training updates the model's weights and biases within the architecture you chose. The optimiser may also update running averages of gradients; those averages are calculated from the gradients, rather than selected by validation or fitted as prediction weights. Keeping these quantities separate will help us interpret the update equations.
+You choose the number and width of the layers, the initialisation rule, and the optimiser settings. These are **hyperparameters**. During training, the optimiser updates the model’s weights and biases to reduce the loss.
 
 For each batch, the order is forward computation, loss, backpropagation, then update. Repeat that cycle with new batches. During inference, the network calculates predictions without gradient-based updates; some components, notably batch normalisation and dropout, also change behaviour between training and inference.
 
