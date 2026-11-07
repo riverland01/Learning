@@ -265,7 +265,7 @@ $$
 
 Next, connect each preactivation to its hidden activation through ReLU. The second unit has $z_2=1.5>0$, so $h_2=z_2$. As long as the change does not cross zero, $\Delta h_2=\Delta z_2$: the derivative is 1. We already know that the loss sensitivity to $h_2$ is 3, so the loss sensitivity to $z_2$ is $3(1)=3$.
 
-For the first unit, $z_1=-1$. A small change that keeps $z_1$ negative leaves $h_1=0$, so $\Delta h_1=0$ and the ReLU derivative is 0. The loss sensitivity to $z_1$ is therefore $1.5(0)=0$. At zero, ReLU has a corner and no unique derivative; an implementation must choose a convention. Neither preactivation here is zero.
+For the first unit, $z_1=-1$. A small change that keeps $z_1$ negative leaves $h_1=0$, so $\Delta h_1=0$ and the ReLU derivative is 0. The loss sensitivity to $z_1$ is therefore $1.5(0)=0$. At zero, ReLU has a corner, so its mathematical derivative is undefined. For backpropagation, we use 0 as the local slope at zero. This makes the gradient through ReLU zero when the preactivation is zero or negative. Both preactivations in this example are nonzero, so the convention does not affect the calculation.
 
 Multiply each activation sensitivity by the derivative of its own ReLU. Denote the resulting preactivation sensitivities by $g_z$, and use $\odot$ for elementwise multiplication:
 
