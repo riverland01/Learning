@@ -76,39 +76,35 @@ backpropagation, then update. Repeat that cycle with new batches. During
 inference, the network calculates predictions without gradient-based
 updates; some components, notably batch normalisation and dropout, also
 change behaviour between training and inference.</p>
-<p>A useful first distinction is between two problems you already
-recognise from conventional machine learning:</p>
+<p>The same loss pattern can have several causes. Use the observations below to decide which explanation to test.</p>
 <div class="table-scroll"><table>
 <colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
+<col style="width: 22%" />
+<col style="width: 38%" />
+<col style="width: 40%" />
 </colgroup>
 <thead>
 <tr class="header">
-<th>Observation</th>
-<th>What it suggests</th>
-<th>What it does not establish</th>
+<th>What you observe</th>
+<th>What might explain it</th>
+<th>What would distinguish the explanations?</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Training loss remains high or becomes unstable</td>
-<td>Investigate implementation, the objective, activation magnitudes,
-gradients and updates</td>
-<td>It does not establish that the architecture lacks capacity</td>
+<td><strong>Training loss stays high or spikes repeatedly.</strong></td>
+<td>If later layers dampen the effect of changes in earlier layers, early weights can receive tiny gradients and barely move. Large optimiser steps can overshoot regions of lower loss. A model with limited capacity can also settle at a high training loss.</td>
+<td><strong>Compare gradients and weight changes across layers.</strong> Tiny gradients and updates concentrated in early layers support the first explanation. Large updates followed by loss spikes support overshooting, especially if a smaller learning rate reduces the spikes. If training is stable and a wider model reaches a lower training loss under comparable conditions, limited capacity becomes more plausible. Width can also change how easily a model trains.</td>
 </tr>
 <tr class="even">
-<td>Training loss is low but held-out performance is poor</td>
-<td>Investigate generalisation, data leakage, distribution mismatch and
-objective–metric alignment</td>
-<td>A more powerful optimiser alone need not help</td>
+<td><strong>The model fits the training data well but performs poorly on held-out data.</strong></td>
+<td>The model may have learned patterns specific to the training set. The held-out data may also differ in ways that affect how well those patterns transfer. For example, a gene-expression model might partly rely on a processing-batch signal if cancer status and batch were correlated in the training cohort.</td>
+<td><strong>Look at when and where performance drops.</strong> If held-out performance worsens as training fit improves on comparable data, that supports overfitting. If the drop is concentrated at a particular site or in a particular processing batch, check what differs in that group and whether the model relies on those differences.</td>
 </tr>
 <tr class="odd">
-<td>Training and validation both improve slowly</td>
-<td>Several explanations remain: small updates, difficult optimisation,
-insufficient capacity or a noisy objective</td>
-<td>The curves alone cannot identify the cause</td>
+<td><strong>Training and validation losses both fall slowly.</strong></td>
+<td>The optimiser may be taking small steps. The loss can also be relatively flat along the directions the updates take, so even substantial weight changes may have little effect.</td>
+<td><strong>Compare the size of the weight changes with the reduction in loss.</strong> If updates are consistently tiny relative to the weights and a modestly higher learning rate reduces training loss faster at the same update count, step size was limiting progress in that comparison. If a higher rate causes spikes while progress stays slow at a stable rate, one possibility is that the loss is much steeper in some directions than in others.</td>
 </tr>
 </tbody>
 </table></div>
