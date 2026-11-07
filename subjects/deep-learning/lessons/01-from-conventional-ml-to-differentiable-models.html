@@ -1059,9 +1059,7 @@ input features. Connecting them to
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>128</mn><annotation encoding="application/x-tex">128</annotation></semantics></math>
 hidden units requires
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>12</mn><mo>,</mo><mn>288</mn><mo>×</mo><mn>128</mn><mo>+</mo><mn>128</mn><mo>=</mo><mn>1</mn><mo>,</mo><mn>572</mn><mo>,</mo><mn>992</mn></mrow><annotation encoding="application/x-tex">12{,}288\times128+128=1{,}572{,}992</annotation></semantics></math>
-parameters in the hidden layer alone. Each input position has its own
-weights, so learning to respond to a scratch in one location does not
-require the dense layer to use the same calculation elsewhere. Module 4
+parameters in the hidden layer alone. Each pixel position has its own weights, so learning to spot a scratch in one place does not teach the network to spot the same scratch somewhere else. Module 4
 will explain how convolution reuses the same weights across spatial
 locations.</p>
 <p>For the inspection task, keep simpler models as baselines. If a few
