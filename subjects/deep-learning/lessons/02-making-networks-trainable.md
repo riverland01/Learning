@@ -14,7 +14,9 @@ We will use a deeper version of the inspection model from Module 1: numerical im
 
 ## Why a larger network can fit the training data worse
 
-Suppose a two-hidden-layer inspection model reduces training loss steadily, but a six-hidden-layer model barely improves. More layers give you more adjustable transformations, yet the training algorithm may struggle to find useful parameters. The distinction matters: a flexible model can represent useful functions without your chosen initialisation and update rule being able to reach them efficiently.
+Suppose a defect-severity model with two hidden layers learns to fit the training data, while a model with six hidden layers barely improves. There may be a set of weights that lets the deeper model fit the data well. Whether training can find such weights from its starting point is a separate question.
+
+One reason training can stall is that later layers can dampen changes made by earlier ones. Suppose an early layer’s output increases by 0.1. If each of the next two layers passes on only half the change, the prediction increases by just 0.025. Backpropagation uses those same factors when calculating how much the loss responds to the early layer. If the resulting gradients are small, a fixed learning rate in SGD produces small changes to that layer’s weights. The deeper model may therefore have room to fit the data much better while making little progress with the current training setup.
 
 **Trainability** is how reliably the chosen training setup reduces the training loss within a given budget. **Generalisation** is how well the trained model performs on unseen observations from the population of interest.
 
