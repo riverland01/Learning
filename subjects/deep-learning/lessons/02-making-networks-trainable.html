@@ -32,7 +32,7 @@ figure{margin:30px 0} .diagram-scroll{overflow:auto;max-width:100%;padding:18px 
 .chapter-list{list-style:none;padding:0;margin:0;counter-reset:none}.chapter-list>li{margin:0;padding:25px 0 27px;border-bottom:1px solid var(--line)}.chapter-topline{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font:12px/1.5 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:9px}.chapter-list h3{font-size:22px;margin:0 0 10px;line-height:1.4}.chapter-list h3 a{text-decoration:none}.chapter-list h3 a:hover{text-decoration:underline}.chapter-list p{font-size:18px;line-height:1.65;margin:0}.chapter-status{font:13px/1.5 system-ui,sans-serif;color:var(--muted);margin-top:13px}.chapter-status.available{color:var(--accent);font-weight:650}.elective-list{padding-left:22px;font-size:18px}.elective-list li{margin:13px 0}.elective-list strong{font-family:system-ui,sans-serif;font-size:16px}.start-link{display:inline-block;background:var(--accent);color:#fffefa;padding:10px 18px;border-radius:3px;font:600 14px/1.5 system-ui,sans-serif;text-decoration:none;margin:4px 0 8px}.start-link:hover{background:#11474d}
 @media(max-width:800px){.course-intro{font-size:19px}.chapter-list h3{font-size:21px}}@media print{.start-link{background:none;color:inherit;padding:0}.chapter-list>li{break-inside:avoid}}
 
-</style></head><body><a class="skip" href="#lesson">Skip to lesson</a><div class="layout"><aside><p class="brand">Personal learning library</p><p class="nav-label" id="contents-label">In this module</p><nav aria-labelledby="contents-label"><ol><li><a href="#outcomes-and-starting-point">Outcomes and starting point</a></li><li><a href="#why-a-larger-network-can-fit-the-training-data-worse">Why a larger network can fit the training data worse</a></li><li><a href="#depth-multiplies-the-factors-that-carry-a-gradient">Depth multiplies the factors that carry a gradient</a></li><li><a href="#initialisation-sets-the-scale-at-which-learning-begins">Initialisation sets the scale at which learning begins</a></li><li><a href="#the-optimiser-turns-derivatives-into-parameter-changes">The optimiser turns derivatives into parameter changes</a></li><li><a href="#normalisation-controls-intermediate-values">Normalisation controls intermediate values</a></li><li><a href="#residual-connections-change-the-path-through-the-model">Residual connections change the path through the model</a></li><li><a href="#regularisation-changes-what-training-is-encouraged-to-learn">Regularisation changes what training is encouraged to learn</a></li><li><a href="#worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives">Worked diagnosis: make a hypothesis distinguishable from alternatives</a></li><li><a href="#what-to-carry-into-representation-learning">What to carry into representation learning</a></li><li><a href="#references">References</a></li></ol></nav><div class="side-footer">Deep learning · Week 2<a href="../index.html">Course contents</a><a href="01-from-conventional-ml-to-differentiable-models.html">Previous: Module 1</a><a href="../CURRICULUM.md">Course curriculum</a><a href="../PROGRESS.md">Learning progress</a></div></aside><main id="lesson"><header><p class="course-back"><a href="../index.html">← Course contents</a></p><p class="eyebrow">Deep learning / Module 02</p><h1>Making networks trainable</h1><p class="meta">Core lesson · Week 2 · Revised 3 November 2026</p></header><article><section aria-labelledby="outcomes-and-starting-point"><h2 id="outcomes-and-starting-point">Outcomes and starting point</h2>
+</style></head><body><a class="skip" href="#lesson">Skip to lesson</a><div class="layout"><aside><p class="brand">Personal learning library</p><p class="nav-label" id="contents-label">In this module</p><nav aria-labelledby="contents-label"><ol><li><a href="#outcomes-and-starting-point">Outcomes and starting point</a></li><li><a href="#why-a-larger-network-can-fit-the-training-data-worse">Why a larger network can fit the training data worse</a></li><li><a href="#depth-multiplies-the-factors-that-carry-a-gradient">Depth multiplies the factors that carry a gradient</a></li><li><a href="#initialisation-sets-the-scale-at-which-learning-begins">Initialisation sets the scale at which learning begins</a></li><li><a href="#the-optimiser-turns-derivatives-into-parameter-changes">The optimiser turns derivatives into parameter changes</a></li><li><a href="#normalisation-controls-intermediate-values">Normalisation controls intermediate values</a></li><li><a href="#residual-connections-change-the-path-through-the-model">Residual connections change the path through the model</a></li><li><a href="#regularisation-changes-what-training-is-encouraged-to-learn">Regularisation changes what training is encouraged to learn</a></li><li><a href="#worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives">Worked diagnosis: make a hypothesis distinguishable from alternatives</a></li><li><a href="#what-to-carry-into-representation-learning">What to carry into representation learning</a></li><li><a href="#references">References</a></li></ol></nav><div class="side-footer">Deep learning · Week 2<a href="../index.html">Course contents</a><a href="01-from-conventional-ml-to-differentiable-models.html">Previous: Module 1</a><a href="../CURRICULUM.md">Course curriculum</a><a href="../PROGRESS.md">Learning progress</a></div></aside><main id="lesson"><header><p class="course-back"><a href="../index.html">← Course contents</a></p><p class="eyebrow">Deep learning / Module 02</p><h1>Making networks trainable</h1><p class="meta">Core lesson · Week 2 · Revised 7 November 2026</p></header><article><section aria-labelledby="outcomes-and-starting-point"><h2 id="outcomes-and-starting-point">Outcomes and starting point</h2>
 <p>Module 1 showed how a network calculates a prediction, how
 backpropagation calculates gradients, and how a parameter update uses
 those gradients. Here we ask what happens when those operations are
@@ -41,18 +41,18 @@ already be able to follow an affine layer, ReLU, the chain rule and a
 mean batch loss. Familiarity with training and validation splits is
 assumed.</p>
 <p>By the end, you should be able to explain how initialisation and
-activation functions affect signal scale; trace why gradients can shrink
-or grow with depth; compare SGD, momentum and Adam; and explain the
-different roles of normalisation, residual connections, weight decay and
-dropout. Most importantly, you should be able to turn an observed
-training failure into a diagnostic hypothesis and a controlled
-comparison, while distinguishing <strong>trainability</strong> from
+activation functions affect activation and gradient magnitudes. You
+should also be able to trace why gradients shrink or grow with depth,
+compare SGD, momentum and Adam, and explain the different roles of
+normalisation, residual connections, weight decay and dropout. Most
+importantly, you should be able to turn an observed training failure
+into a diagnostic hypothesis and a controlled comparison, while
+distinguishing <strong>trainability</strong> from
 <strong>generalisation</strong>.</p>
 <p>We will use a deeper version of the inspection model from Module 1:
 numerical image features enter several hidden layers, and a final affine
-layer predicts a defect-severity score. All numerical examples and
-diagnostic observations below are illustrative. They are not
-measurements from a trained inspection model.</p>
+layer predicts a defect-severity score. The numerical examples and
+diagnostic observations are hypothetical.</p>
 </section><section aria-labelledby="why-a-larger-network-can-fit-the-training-data-worse"><h2 id="why-a-larger-network-can-fit-the-training-data-worse">Why a
 larger network can fit the training data worse</h2>
 <p>Suppose a two-hidden-layer inspection model reduces training loss
@@ -61,14 +61,19 @@ you more adjustable transformations, yet the training algorithm may
 struggle to find useful parameters. The distinction matters: a flexible
 model can represent useful functions without your chosen initialisation
 and update rule being able to reach them efficiently.</p>
-<p>The entire training process has four cooperating parts. <strong>The
+<p><strong>Trainability</strong> is how reliably the chosen training
+setup reduces the training loss within a given budget.
+<strong>Generalisation</strong> is how well the trained model performs
+on unseen observations from the population of interest.</p>
+<p>Initialisation sets the starting parameter values. Four components
+then determine how each training step works. <strong>The
 architecture</strong> specifies the forward computation. <strong>The
 objective</strong> scores its predictions.
 <strong>Backpropagation</strong> differentiates that objective through
 the computation. <strong>The optimiser</strong> uses the gradients and
-its stored state to update parameters. Initialisation chooses where this
-process begins. Training therefore depends on more than whether the
-forward pass returns an output or the loss has a derivative.</p>
+its stored state to update parameters. Training therefore depends on
+more than whether the forward pass returns an output or the loss has a
+derivative.</p>
 <p>As the model designer, you choose the number and width of the layers,
 the initialisation rule and the optimiser settings. These are
 <strong>hyperparameters</strong>, as is the dropout probability
@@ -85,33 +90,33 @@ updates; some components, notably batch normalisation and dropout, also
 change behaviour between training and inference.</p>
 <p>A useful first distinction is between two problems you already
 recognise from conventional machine learning:</p>
-<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
+<div class="table-scroll"><table>
 <colgroup>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
 </colgroup>
 <thead>
-<tr>
+<tr class="header">
 <th>Observation</th>
 <th>What it suggests</th>
 <th>What it does not establish</th>
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td>Training loss remains high or becomes unstable</td>
-<td>Investigate implementation, objective, signal scale, gradients and
-updates</td>
+<td>Investigate implementation, the objective, activation magnitudes,
+gradients and updates</td>
 <td>It does not establish that the architecture lacks capacity</td>
 </tr>
-<tr>
+<tr class="even">
 <td>Training loss is low but held-out performance is poor</td>
 <td>Investigate generalisation, data leakage, distribution mismatch and
 objective–metric alignment</td>
 <td>A more powerful optimiser alone need not help</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>Training and validation both improve slowly</td>
 <td>Several explanations remain: small updates, difficult optimisation,
 insufficient capacity or a noisy objective</td>
@@ -132,131 +137,151 @@ failure.</p>
 multiplies the factors that carry a gradient</h2>
 <h3 id="follow-one-network-before-examining-its-derivatives">Follow one
 network before examining its derivatives</h3>
-<p>For one observation, let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>
-be the column vector of input features. The network has
+<p>Each step backward through a single chain multiplies the loss
+derivative by a connecting weight and the local slope of the activation.
+Across many layers, those factors can make the derivative shrink or
+grow.</p>
+<p>Take an inspection model with one numerical input, two one-unit ReLU
+layers and an affine output. Use input
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x=1</annotation></semantics></math>,
+first hidden weight
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>,
+second hidden weight
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>2</mn><annotation encoding="application/x-tex">2</annotation></semantics></math>,
+and output weight
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>.
+All biases are zero. The first preactivation is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mn>1</mn></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">z_1=1</annotation></semantics></math>,
+so the first activation is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mn>1</mn></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">h_1=1</annotation></semantics></math>.
+The second preactivation is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn><msub><mi>h</mi><mn>1</mn></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">z_2=2h_1=2</annotation></semantics></math>,
+so the second activation is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">h_2=2</annotation></semantics></math>.
+The output gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>h</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\hat y=h_2=2</annotation></semantics></math>.
+For target
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>y</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">y=1</annotation></semantics></math>,
+the half squared loss
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℒ</mi><mo>=</mo><mfrac displaystyle="false"><mn>1</mn><mn>2</mn></mfrac><msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>−</mo><mi>y</mi><mo stretchy="true" form="postfix">)</mo></mrow><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\mathcal L=\tfrac12(\hat y-y)^2</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.5</mn><annotation encoding="application/x-tex">0.5</annotation></semantics></math>.</p>
+<p>Work backward with the target and all parameters fixed. The loss
+derivative with respect to the prediction is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>−</mo><mi>y</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\hat y-y=1</annotation></semantics></math>.
+The output weight is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>
+and the second ReLU’s local slope is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>,
+so the loss derivative with respect to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mn>2</mn></msub><annotation encoding="application/x-tex">z_2</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>×</mo><mn>1</mn><mo>×</mo><mn>1</mn><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">1\times1\times1=1</annotation></semantics></math>.
+Moving back to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mn>1</mn></msub><annotation encoding="application/x-tex">z_1</annotation></semantics></math>
+adds two factors. The connection from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mn>1</mn></msub><annotation encoding="application/x-tex">h_1</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mn>2</mn></msub><annotation encoding="application/x-tex">z_2</annotation></semantics></math>
+has weight
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>2</mn><annotation encoding="application/x-tex">2</annotation></semantics></math>,
+and the first ReLU has local slope
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>.
+The loss derivative with respect to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mn>1</mn></msub><annotation encoding="application/x-tex">z_1</annotation></semantics></math>
+is therefore
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>×</mo><mn>2</mn><mo>×</mo><mn>1</mn><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">1\times2\times1=2</annotation></semantics></math>.
+If we now vary the first weight alone, its effect on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mn>1</mn></msub><annotation encoding="application/x-tex">z_1</annotation></semantics></math>
+is multiplied by the input
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x=1</annotation></semantics></math>,
+giving a loss derivative of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>×</mo><mn>1</mn><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">2\times1=2</annotation></semantics></math>
+for that weight.</p>
+<p>ReLU has slope
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>
+at positive preactivations and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
+at negative preactivations. At zero its mathematical derivative is
+undefined. As in Module 1, backpropagation here uses a local slope of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
+at zero, so no gradient passes through that activation.</p>
+<p>For a network with
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>L</mi><annotation encoding="application/x-tex">L</annotation></semantics></math>
-hidden layers, followed by an affine output layer that predicts one
-score. Let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mn>0</mn></msub><mo>=</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">h_0=x</annotation></semantics></math>.
-Hidden layer
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ℓ</mi><annotation encoding="application/x-tex">\ell</annotation></semantics></math>
-receives the previous activation vector
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">h_{\ell-1}</annotation></semantics></math>
-and computes</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>ℓ</mi></msub><mo>=</mo><msub><mi>W</mi><mi>ℓ</mi></msub><msub><mi>h</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi>b</mi><mi>ℓ</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>h</mi><mi>ℓ</mi></msub><mo>=</mo><mi>ϕ</mi><mo form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mi>ℓ</mi></msub><mo form="postfix" stretchy="false">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
-z_\ell=W_\ell h_{\ell-1}+b_\ell,
-\qquad h_\ell=\phi(z_\ell).
-</annotation></semantics></math></div>
-<p>Here,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">W_\ell</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">b_\ell</annotation></semantics></math>
-are that layer’s weights and biases;
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">z_\ell</annotation></semantics></math>
-contains its preactivations; and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϕ</mi><annotation encoding="application/x-tex">\phi</annotation></semantics></math>
-applies an activation function entry by entry. If layer
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\ell-1</annotation></semantics></math>
-has
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">n_{\ell-1}</annotation></semantics></math>
-units and layer
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ℓ</mi><annotation encoding="application/x-tex">\ell</annotation></semantics></math>
-has
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">n_\ell</annotation></semantics></math>,
-then
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">W_\ell</annotation></semantics></math>
-has shape
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mi>ℓ</mi></msub><mo>×</mo><msub><mi>n</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">n_\ell\times n_{\ell-1}</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">h_\ell</annotation></semantics></math>
-has
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">n_\ell</annotation></semantics></math>
-entries. Input values and activations depend on the observation; the
-same parameters are reused for every observation. The final prediction
-is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><msub><mi>h</mi><mi>L</mi></msub><mo>+</mo><msub><mi>b</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat y=W_{\mathrm{out}}h_L+b_{\mathrm{out}}</annotation></semantics></math>,
-and its loss is the scalar
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ℒ</mi><annotation encoding="application/x-tex">\mathcal L</annotation></semantics></math>.</p>
-<p>To update an early weight, we need to connect its change to the final
-loss. First consider one illustrative connection: a hidden activation
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>a</mi><annotation encoding="application/x-tex">a</annotation></semantics></math>
-enters a later unit whose preactivation is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><mn>2</mn><mi>a</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z=2a+b</annotation></semantics></math>.
-Holding the connecting weight 2, the bias and the other inputs fixed, a
-change
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>a</mi></mrow><annotation encoding="application/x-tex">\Delta a</annotation></semantics></math>
-produces
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>z</mi><mo>=</mo><mn>2</mn><mi mathvariant="normal">Δ</mi><mi>a</mi></mrow><annotation encoding="application/x-tex">\Delta z=2\Delta a</annotation></semantics></math>.
-Suppose the loss derivative at this later preactivation is 3. Then</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>ℒ</mi><mo>≈</mo><mn>3</mn><mi mathvariant="normal">Δ</mi><mi>z</mi><mo>=</mo><mn>3</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mi mathvariant="normal">Δ</mi><mi>a</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>6</mn><mi mathvariant="normal">Δ</mi><mi>a</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
-\Delta\mathcal L\approx3\Delta z=3(2\Delta a)=6\Delta a.
-</annotation></semantics></math></div>
-<p>Thus the loss derivative with respect to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>a</mi><annotation encoding="application/x-tex">a</annotation></semantics></math>
-is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>3</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">3\times2=6</annotation></semantics></math>.
-The weight supplies the rate from activation to later preactivation;
-multiplying by the later loss derivative connects that activation to the
-loss. These numbers illustrate the calculation, not fitted network
-values. If the activation is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo>=</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mi>s</mi><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">a=\operatorname{ReLU}(s)</annotation></semantics></math>,
+hidden layers, let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mn>0</mn></msub><mo>=</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">h_0=x</annotation></semantics></math>,
 where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>
-is its preactivation, we must also multiply by the activation
-derivative: at positive
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>
-it is 1, giving a derivative of 6 with respect to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>;
-at negative
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>s</mi><annotation encoding="application/x-tex">s</annotation></semantics></math>
-it is 0, giving zero. If the activation feeds several later units, add
-the contributions through those connections.</p>
-<p>The matrix equation below collects these same per-connection
-calculations for a whole layer. Define
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>ℓ</mi></msub><mo>=</mo><mi>∂</mi><mi>ℒ</mi><mi>/</mi><mi>∂</mi><msub><mi>z</mi><mi>ℓ</mi></msub></mrow><annotation encoding="application/x-tex">\delta_\ell=\partial\mathcal L/\partial z_\ell</annotation></semantics></math>:
-entry
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-is the loss’s derivative with respect to preactivation
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-in layer
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ℓ</mi><annotation encoding="application/x-tex">\ell</annotation></semantics></math>.
-For adjacent hidden layers, the chain rule gives</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>ℓ</mi></msub><mo>=</mo><mrow><mo form="prefix" stretchy="true">(</mo><msubsup><mi>W</mi><mrow><mi>ℓ</mi><mo>+</mo><mn>1</mn></mrow><mi>T</mi></msubsup><msub><mi>δ</mi><mrow><mi>ℓ</mi><mo>+</mo><mn>1</mn></mrow></msub><mo form="postfix" stretchy="true">)</mo></mrow><mo>⊙</mo><msup><mi>ϕ</mi><mo>′</mo></msup><mo form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mi>ℓ</mi></msub><mo form="postfix" stretchy="false">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
-\delta_\ell=
-\left(W_{\ell+1}^{T}\delta_{\ell+1}\right)
-\odot\phi'(z_\ell).
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>
+is now the input feature vector. In hidden layer
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>ℓ</mo><annotation encoding="application/x-tex">\ell</annotation></semantics></math>,
+the weight matrix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">W_\ell</annotation></semantics></math>
+and bias vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">b_\ell</annotation></semantics></math>
+produce the preactivation vector
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mo>ℓ</mo></msub><mo>=</mo><msub><mi>W</mi><mo>ℓ</mo></msub><msub><mi>h</mi><mrow><mo>ℓ</mo><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi>b</mi><mo>ℓ</mo></msub></mrow><annotation encoding="application/x-tex">z_\ell=W_\ell h_{\ell-1}+b_\ell</annotation></semantics></math>.
+Each row of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">W_\ell</annotation></semantics></math>
+contains one receiving unit’s weights. Its columns correspond to the
+entries of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mrow><mo>ℓ</mo><mo>−</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">h_{\ell-1}</annotation></semantics></math>.
+Applying the chosen activation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ϕ</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">\phi_\ell</annotation></semantics></math>
+entry by entry gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mo>ℓ</mo></msub><mo>=</mo><msub><mi>ϕ</mi><mo>ℓ</mo></msub><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>z</mi><mo>ℓ</mo></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">h_\ell=\phi_\ell(z_\ell)</annotation></semantics></math>.
+The affine output uses the weight row
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">W_{\mathrm{out}}</annotation></semantics></math>
+and bias
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">b_{\mathrm{out}}</annotation></semantics></math>
+to predict
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>y</mi><mo accent="true">̂</mo></mover><mo>=</mo><msub><mi>W</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><msub><mi>h</mi><mi>L</mi></msub><mo>+</mo><msub><mi>b</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\hat y=W_{\mathrm{out}}h_L+b_{\mathrm{out}}</annotation></semantics></math>.</p>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>δ</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">\delta_\ell</annotation></semantics></math>
+collect the loss derivatives with respect to the entries of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">z_\ell</annotation></semantics></math>,
+and let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><mi>∂</mi><mi>ℒ</mi><mi>/</mi><mi>∂</mi><mover><mi>y</mi><mo accent="true">̂</mo></mover></mrow><annotation encoding="application/x-tex">d_{\mathrm{out}}=\partial\mathcal L/\partial\hat y</annotation></semantics></math>
+be the scalar loss derivative at the prediction. The output provides the
+starting value for the last hidden layer. From there, the same chain
+rule applies between adjacent hidden layers:</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>L</mi></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mi>W</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow><mi>T</mi></msubsup><msub><mi>d</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>⊙</mo><msub><mi>ϕ</mi><mi>L</mi></msub><mi>′</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>z</mi><mi>L</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>δ</mi><mo>ℓ</mo></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><msubsup><mi>W</mi><mrow><mo>ℓ</mo><mo>+</mo><mn>1</mn></mrow><mi>T</mi></msubsup><msub><mi>δ</mi><mrow><mo>ℓ</mo><mo>+</mo><mn>1</mn></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>⊙</mo><msub><mi>ϕ</mi><mo>ℓ</mo></msub><mi>′</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>z</mi><mo>ℓ</mo></msub><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="1.0em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mo>ℓ</mo><mo>&lt;</mo><mi>L</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\delta_L=(W_{\mathrm{out}}^T d_{\mathrm{out}})\odot\phi_L&#39;(z_L),
+\qquad
+\delta_\ell=(W_{\ell+1}^T\delta_{\ell+1})\odot\phi_\ell&#39;(z_\ell)
+\quad (\ell&lt;L).
 </annotation></semantics></math></div>
 <p>The symbol
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>⊙</mi><annotation encoding="application/x-tex">\odot</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>⊙</mo><annotation encoding="application/x-tex">\odot</annotation></semantics></math>
 means entrywise multiplication. Entry
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
 of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>W</mi><mrow><mi>ℓ</mi><mo>+</mo><mn>1</mn></mrow><mi>T</mi></msubsup><msub><mi>δ</mi><mrow><mi>ℓ</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">W_{\ell+1}^{T}\delta_{\ell+1}</annotation></semantics></math>
-sums the later units’ loss derivatives multiplied by their connecting
-weights from activation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>W</mi><mrow><mo>ℓ</mo><mo>+</mo><mn>1</mn></mrow><mi>T</mi></msubsup><msub><mi>δ</mi><mrow><mo>ℓ</mo><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">W_{\ell+1}^T\delta_{\ell+1}</annotation></semantics></math>
+adds the contributions from all later units connected to activation
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>.
-Multiplying that sum by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ϕ</mi><mo>′</mo></msup><mo form="prefix" stretchy="false">(</mo><msub><mi>z</mi><mi>ℓ</mi></msub><msub><mo form="postfix" stretchy="false">)</mo><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\phi'(z_\ell)_i</annotation></semantics></math>
-accounts for how activation
+Multiplying by the local slope at preactivation
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-changes with its preactivation. This is the same multiplication by 2 and
-then by the ReLU derivative in the scalar example, with contributions
-summed where there are several connections. Repeating this calculation
-explains how early-layer gradients accumulate products of weights and
-activation derivatives.<a href="#ref-1">1</a></p>
+gives the corresponding entry of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>δ</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">\delta_\ell</annotation></semantics></math>.
+In the two-hidden-layer trace there is only one entry at each step: the
+output starts
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>δ</mi><mn>2</mn></msub><annotation encoding="application/x-tex">\delta_2</annotation></semantics></math>
+at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>×</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><mn>1</mn><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">(1\times1)\times1=1</annotation></semantics></math>,
+and the hidden-layer formula gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mn>1</mn></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>2</mn><mo>×</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><mn>1</mn><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\delta_1=(2\times1)\times1=2</annotation></semantics></math>.<a
+href="#ref-1">1</a></p>
 <p>For one observation, the corresponding weight gradient is</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>ℒ</mi></mrow><mrow><mi>∂</mi><msub><mi>W</mi><mi>ℓ</mi></msub></mrow></mfrac><mo>=</mo><msub><mi>δ</mi><mi>ℓ</mi></msub><msubsup><mi>h</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow><mi>T</mi></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mrow><mi>∂</mi><mi>ℒ</mi></mrow><mrow><mi>∂</mi><msub><mi>W</mi><mo>ℓ</mo></msub></mrow></mfrac><mo>=</mo><msub><mi>δ</mi><mo>ℓ</mo></msub><msubsup><mi>h</mi><mrow><mo>ℓ</mo><mo>−</mo><mn>1</mn></mrow><mi>T</mi></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \frac{\partial\mathcal L}{\partial W_\ell}
 =\delta_\ell h_{\ell-1}^{T}.
 </annotation></semantics></math></div>
 <p>This outer product has the same shape as
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">W_\ell</annotation></semantics></math>.
-It reveals two reasons a weight gradient can be small: the backward
-derivative
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>δ</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">\delta_\ell</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>W</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">W_\ell</annotation></semantics></math>.
+It reveals two reasons a weight gradient can be small: the loss
+derivatives collected in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>δ</mi><mo>ℓ</mo></msub><annotation encoding="application/x-tex">\delta_\ell</annotation></semantics></math>
 can be small, or the incoming activation
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mrow><mi>ℓ</mi><mo>−</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">h_{\ell-1}</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>h</mi><mrow><mo>ℓ</mo><mo>−</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">h_{\ell-1}</annotation></semantics></math>
 can be small. For a mean batch loss, average these per-observation
 contributions. A small gradient is not automatically a fault; it is
 suspicious when a model with substantial remaining error receives too
@@ -266,8 +291,7 @@ calculation makes the multiplication visible</h3>
 <p>To isolate the effect of repeated multiplication, choose a single
 illustrative path with 12 successive local derivatives, each equal to
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.5</mn><annotation encoding="application/x-tex">0.5</annotation></semantics></math>.
-These numbers are chosen for calculation, not measured from a network. A
-derivative of 1 at the end becomes
+A derivative of 1 at the end becomes
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>0.5</mn><mn>12</mn></msup><mo>≈</mo><mn>0.000244</mn></mrow><annotation encoding="application/x-tex">0.5^{12}\approx0.000244</annotation></semantics></math>
 at the beginning. If each factor is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1.5</mn><annotation encoding="application/x-tex">1.5</annotation></semantics></math>,
@@ -281,25 +305,26 @@ derivatives. Some directions can shrink while others grow. The scalar
 calculation illustrates multiplication; it does not predict every
 gradient from the network’s depth alone.</p>
 <p>The activation function affects those factors. A sigmoid activation
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>σ</mi><mo form="prefix" stretchy="false">(</mo><mi>z</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>1</mn><mi>/</mi><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>z</mi></mrow></msup><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\sigma(z)=1/(1+e^{-z})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>σ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>1</mn><mi>/</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>+</mo><msup><mi>e</mi><mrow><mo>−</mo><mi>z</mi></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\sigma(z)=1/(1+e^{-z})</annotation></semantics></math>
 has derivative
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>σ</mi><mo form="prefix" stretchy="false">(</mo><mi>z</mi><mo form="postfix" stretchy="false">)</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><mi>σ</mi><mo form="prefix" stretchy="false">(</mo><mi>z</mi><mo form="postfix" stretchy="false">)</mo><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\sigma(z)(1-\sigma(z))</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>σ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>σ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\sigma(z)(1-\sigma(z))</annotation></semantics></math>,
 at most
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>4</mn></mrow><annotation encoding="application/x-tex">1/4</annotation></semantics></math>
 and much smaller for large positive or negative preactivations. In those
 saturated regions, substantial changes in
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
-barely change the activation. The backward derivative therefore shrinks
-at that operation. ReLU has derivative 1 for positive preactivations and
-0 for negative ones. It avoids positive-side saturation, but a unit that
-stays negative for all relevant inputs receives zero gradient through
-ReLU. Changing a negative unit’s incoming weights through that path
-cannot revive it while those derivatives remain zero.<a href="#ref-1">1</a>,<a href="#ref-2">2</a></p>
+barely change the activation. That small local slope reduces the loss
+derivative passed through the activation. ReLU avoids positive-side
+saturation, but a unit that stays negative for all relevant inputs
+receives zero gradient through ReLU. Changing a negative unit’s incoming
+weights through that path cannot revive it while those derivatives
+remain zero.<a href="#ref-1">1</a>,<a href="#ref-2">2</a></p>
 <p>Large positive ReLU outputs are also unbounded. Replacing sigmoid
 with ReLU does not prevent large weight products from amplifying
-activations or gradients. Activation choice and parameter scale have to
-work together.</p>
-</section><section aria-labelledby="initialisation-sets-the-scale-at-which-learning-begins"><h2 id="initialisation-sets-the-scale-at-which-learning-begins">Initialisation
+activations or gradients. Activation choice and initial weight
+magnitudes have to work together.</p>
+</section><section aria-labelledby="initialisation-sets-the-scale-at-which-learning-begins"><h2
+id="initialisation-sets-the-scale-at-which-learning-begins">Initialisation
 sets the scale at which learning begins</h2>
 <h3 id="different-units-need-different-starting-weights">Different units
 need different starting weights</h3>
@@ -309,10 +334,17 @@ symmetric network, they can receive identical updates and remain copies
 of one another. Random weights break that symmetry. Biases can often
 start at zero because distinct weights already make the units
 different.</p>
-<p>The magnitude of those random weights matters as much as their
-differences. Consider one unit with
+<p>The magnitude of the random weights controls how quickly activations
+shrink or grow at the start of training. For ReLU, <strong>fan-in He
+initialisation</strong> sets the weight variance to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>/</mi><mi>n</mi></mrow><annotation encoding="application/x-tex">2/n</annotation></semantics></math>,
+where the fan-in
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
-inputs. Write its weighted sum as
+is the number of inputs. In the 64-input example below, this gives a
+standard deviation of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msqrt><mrow><mn>2</mn><mi>/</mi><mn>64</mn></mrow></msqrt><mo>≈</mo><mn>0.1768</mn></mrow><annotation encoding="application/x-tex">\sqrt{2/64}\approx0.1768</annotation></semantics></math>.
+To see why this value works, consider what one unit does to the average
+squared activation. Write its weighted sum as
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><msubsup><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></msubsup><msub><mi>w</mi><mi>j</mi></msub><msub><mi>h</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">z=\sum_{j=1}^{n}w_jh_j</annotation></semantics></math>,
 choosing a zero bias for this calculation. We choose an initialisation
 rule that draws independent weights with mean zero and variance
@@ -321,19 +353,27 @@ independently of the incoming activations. The variance describes the
 distribution of starting weights, not a constraint on their values after
 training. Let the incoming activations have a common <strong>second
 moment</strong>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><mi>E</mi><mo form="prefix" stretchy="false">[</mo><msubsup><mi>h</mi><mi>j</mi><mn>2</mn></msubsup><mo form="postfix" stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">q=E[h_j^2]</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><msubsup><mi>h</mi><mi>j</mi><mn>2</mn></msubsup><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">q=E[h_j^2]</annotation></semantics></math>,
 meaning their average squared magnitude. Averaging over the random
 initialisation and input distribution gives the approximate scale
 relation</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo form="prefix" stretchy="false">[</mo><msup><mi>z</mi><mn>2</mn></msup><mo form="postfix" stretchy="false">]</mo><mo>≈</mo><mi>n</mi><msup><mi>s</mi><mn>2</mn></msup><mi>q</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><msup><mi>z</mi><mn>2</mn></msup><mo stretchy="true" form="postfix">]</mo></mrow><mo>≈</mo><mi>n</mi><msup><mi>s</mi><mn>2</mn></msup><mi>q</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
 E[z^2]\approx n s^2 q.
 </annotation></semantics></math></div>
 <p>The second moment includes both variability and a nonzero mean. For
 instance, a constant activation of 2 has variance zero but second moment
 4. We use the second moment because ReLU outputs generally have a
-positive mean. Under an approximately symmetric preactivation
-distribution, ReLU keeps half the squared magnitude on average, so</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo form="prefix" stretchy="false">[</mo><mrow><mi mathvariant="normal">ReLU</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mi>z</mi><msup><mo form="postfix" stretchy="false">)</mo><mn>2</mn></msup><mo form="postfix" stretchy="false">]</mo><mo>≈</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mi>n</mi><msup><mi>s</mi><mn>2</mn></msup><mi>q</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
+positive mean. When the preactivation distribution is approximately
+symmetric about zero, positive and negative values contribute about
+equally to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><msup><mi>z</mi><mn>2</mn></msup><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">E[z^2]</annotation></semantics></math>
+because
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mi>z</mi></mrow><annotation encoding="application/x-tex">-z</annotation></semantics></math>
+have the same square. ReLU keeps the positive contribution and sets the
+negative contribution to zero. The resulting second moment is</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><mo>ReLU</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mn>2</mn></msup><mo stretchy="true" form="postfix">]</mo></mrow><mo>≈</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mi>n</mi><msup><mi>s</mi><mn>2</mn></msup><mi>q</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
 E[\operatorname{ReLU}(z)^2]\approx\frac12 n s^2q.
 </annotation></semantics></math></div>
 <p>The factor
@@ -341,24 +381,22 @@ E[\operatorname{ReLU}(z)^2]\approx\frac12 n s^2q.
 appears because the unit sums
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
 weighted inputs. If the incoming width increases while weight variance
-stays fixed, that sum tends to grow. Choosing
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>s</mi><mn>2</mn></msup><mo>=</mo><mn>2</mn><mi>/</mi><mi>n</mi></mrow><annotation encoding="application/x-tex">s^2=2/n</annotation></semantics></math>
-approximately preserves the forward second moment for ReLU. This is
-<strong>He initialisation</strong> with a fan-in convention:
-<em>fan-in</em> means the number of inputs to a unit.<a href="#ref-2">2</a></p>
-<p>Choose 64 incoming units for an illustrative calculation. This is a
-hypothetical width, not a recommendation or a value determined by the
-number of input features. The corresponding He weight standard deviation
-is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msqrt><mrow><mn>2</mn><mi>/</mi><mn>64</mn></mrow></msqrt><mo>≈</mo><mn>0.1768</mn></mrow><annotation encoding="application/x-tex">\sqrt{2/64}\approx0.1768</annotation></semantics></math>.
-To contrast it with a poorly scaled start, choose a smaller standard
-deviation of
+stays fixed, that sum tends to grow. Setting the multiplier
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><msup><mi>s</mi><mn>2</mn></msup><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">ns^2/2</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>
+gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>s</mi><mn>2</mn></msup><mo>=</mo><mn>2</mn><mi>/</mi><mi>n</mi></mrow><annotation encoding="application/x-tex">s^2=2/n</annotation></semantics></math>,
+which approximately preserves the forward second moment.<a
+href="#ref-2">2</a></p>
+<p>For the same 64-input ReLU unit, compare He initialisation with a
+smaller weight standard deviation of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.05</mn><annotation encoding="application/x-tex">0.05</annotation></semantics></math>.
 That gives a second-moment multiplier of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>64</mn><mo form="prefix" stretchy="false">(</mo><mn>0.05</mn><msup><mo form="postfix" stretchy="false">)</mo><mn>2</mn></msup><mi>/</mi><mn>2</mn><mo>=</mo><mn>0.08</mn></mrow><annotation encoding="application/x-tex">64(0.05)^2/2=0.08</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>64</mn><msup><mrow><mo stretchy="true" form="prefix">(</mo><mn>0.05</mn><mo stretchy="true" form="postfix">)</mo></mrow><mn>2</mn></msup><mi>/</mi><mn>2</mn><mo>=</mo><mn>0.08</mn></mrow><annotation encoding="application/x-tex">64(0.05)^2/2=0.08</annotation></semantics></math>
 per layer under this approximation. Across six such layers, the
 multiplier is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>0.08</mn><mn>6</mn></msup><mo>=</mo><mn>2.62144</mn><mo>×</mo><msup><mn>10</mn><mrow><mi>−</mi><mn>7</mn></mrow></msup></mrow><annotation encoding="application/x-tex">0.08^6=2.62144\times10^{-7}</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>0.08</mn><mn>6</mn></msup><mo>=</mo><mn>2.62144</mn><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>7</mn></mrow></msup></mrow><annotation encoding="application/x-tex">0.08^6=2.62144\times10^{-7}</annotation></semantics></math>.
 Tiny initial weights can therefore make activations rapidly collapse
 even though the network contains many parameters.</p>
 <p>This calculation describes an initialisation model, not a guarantee
@@ -370,15 +408,21 @@ backward direction has a useful scale.</p>
 rule to the activation and architecture</h3>
 <p><strong>Glorot, or Xavier, initialisation</strong> balances forward
 and backward scale with weight variance approximately
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>/</mi><mo form="prefix" stretchy="false">(</mo><msub><mi>n</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">n</mi></mrow></msub><mo>+</mo><msub><mi>n</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">2/(n_{\mathrm{in}}+n_{\mathrm{out}})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mi>/</mi><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>n</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">n</mi></mrow></msub><mo>+</mo><msub><mi>n</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">2/(n_{\mathrm{in}}+n_{\mathrm{out}})</annotation></semantics></math>
 under its assumptions. Here,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">n</mi></mrow></msub><annotation encoding="application/x-tex">n_{\mathrm{in}}</annotation></semantics></math>
 is fan-in and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>n</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">n_{\mathrm{out}}</annotation></semantics></math>
 is fan-out, the number of receiving units. It is a common starting point
 for roughly linear or suitably scaled tanh layers. He initialisation
-compensates specifically for the loss of second moment through ReLU. The
-two prescriptions differ because they model different transformations.<a href="#ref-1">1</a>,<a href="#ref-2">2</a></p>
+compensates specifically for the loss of second moment through ReLU. For
+64 inputs and 64 receiving units, Glorot gives a standard deviation of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msqrt><mrow><mn>2</mn><mi>/</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>64</mn><mo>+</mo><mn>64</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow></msqrt><mo>=</mo><mn>0.125</mn></mrow><annotation encoding="application/x-tex">\sqrt{2/(64+64)}=0.125</annotation></semantics></math>,
+compared with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.1768</mn><annotation encoding="application/x-tex">0.1768</annotation></semantics></math>
+from He. The extra variance in the He rule compensates for the negative
+preactivations that ReLU zeros.<a href="#ref-1">1</a>,<a
+href="#ref-2">2</a></p>
 <p>Use the initialisation prescribed for the actual architecture and
 activation rather than applying a hidden-layer rule to every tensor.
 Output layers can have different requirements. Standardising input
@@ -414,7 +458,7 @@ optimisers.</p>
 <h3 id="sgd-and-momentum-use-gradients-in-different-ways">SGD and
 momentum use gradients in different ways</h3>
 <p><strong>Stochastic gradient descent (SGD)</strong> uses</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><msub><mi>g</mi><mi>t</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><msub><mi>g</mi><mi>t</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \theta_{t+1}=\theta_t-\eta_tg_t.
 </annotation></semantics></math></div>
 <p>“Stochastic” refers to using sampled observations or batches rather
@@ -425,7 +469,7 @@ progress slow; a large one can repeatedly overshoot regions with lower
 loss or produce numerical divergence.</p>
 <p>To see why a large derivative may require a small learning rate,
 consider the one-parameter loss
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℒ</mi><mo form="prefix" stretchy="false">(</mo><mi>θ</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mi>a</mi><msup><mi>θ</mi><mn>2</mn></msup><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\mathcal L(\theta)=a\theta^2/2</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ℒ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>a</mi><msup><mi>θ</mi><mn>2</mn></msup><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\mathcal L(\theta)=a\theta^2/2</annotation></semantics></math>,
 where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a&gt;0</annotation></semantics></math>
 controls curvature: larger
@@ -433,7 +477,7 @@ controls curvature: larger
 means a sharper increase away from zero. Its gradient is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mi>θ</mi></mrow><annotation encoding="application/x-tex">a\theta</annotation></semantics></math>,
 so SGD gives
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><mi>η</mi><mi>a</mi><mo form="postfix" stretchy="false">)</mo><msub><mi>θ</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">\theta_{t+1}=(1-\eta a)\theta_t</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>η</mi><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>θ</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">\theta_{t+1}=(1-\eta a)\theta_t</annotation></semantics></math>.
 The magnitude shrinks only when
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>&lt;</mo><mi>η</mi><mi>a</mi><mo>&lt;</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">0&lt;\eta a&lt;2</annotation></semantics></math>.
 A real network has multiple directions with different curvature; a step
@@ -442,23 +486,23 @@ sharply changing one. This quadratic calculation explains a local
 constraint, not a universal learning-rate bound for networks.</p>
 <p><strong>Momentum</strong> combines the current gradient with an
 accumulated gradient from earlier updates. Call the accumulated gradient
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>v</mi><mi>t</mi></msub><annotation encoding="application/x-tex">v_t</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>t</mi></msub><annotation encoding="application/x-tex">u_t</annotation></semantics></math>.
 You choose the retention factor
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>
 between 0 and 1: it multiplies the previous accumulation, so a larger
 value carries more of that history into the next update. Starting with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>v</mi><mn>0</mn></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">v_0=0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mn>0</mn></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">u_0=0</annotation></semantics></math>,
 we use the following update:</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>v</mi><mi>t</mi></msub><mo>=</mo><mi>μ</mi><msub><mi>v</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi>g</mi><mi>t</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><msub><mi>v</mi><mi>t</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
-v_t=\mu v_{t-1}+g_t,
-\qquad \theta_{t+1}=\theta_t-\eta_tv_t.
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mi>t</mi></msub><mo>=</mo><mi>μ</mi><msub><mi>u</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi>g</mi><mi>t</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><msub><mi>u</mi><mi>t</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+u_t=\mu u_{t-1}+g_t,
+\qquad \theta_{t+1}=\theta_t-\eta_tu_t.
 </annotation></semantics></math></div>
 <p>Repeated gradient signs reinforce the accumulated gradient, while
 rapidly alternating signs tend to cancel. Momentum can therefore make
 more consistent progress through noisy updates. It can also carry the
 model past a good region if the learning rate or retained accumulation
 is too large. Some descriptions instead use an average
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>v</mi><mi>t</mi></msub><mo>=</mo><mi>μ</mi><msub><mi>v</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><mi>μ</mi><mo form="postfix" stretchy="false">)</mo><msub><mi>g</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">v_t=\mu v_{t-1}+(1-\mu)g_t</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mi>t</mi></msub><mo>=</mo><mi>μ</mi><msub><mi>u</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>μ</mi><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>g</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">u_t=\mu u_{t-1}+(1-\mu)g_t</annotation></semantics></math>.
 For the same sequence of gradients, starting from zero with fixed
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>,
 that average is
@@ -466,7 +510,8 @@ that average is
 times the accumulation used here, so the same numerical learning rate
 produces a smaller step. Separate training runs can develop different
 gradients because their earlier updates differ. Check the equation, not
-just the name “momentum,” when comparing settings.<a href="#ref-10">10</a></p>
+just the name “momentum,” when comparing settings.<a
+href="#ref-10">10</a></p>
 <h3 id="adam-estimates-a-scale-for-each-parameter">Adam estimates a
 scale for each parameter</h3>
 <p>Two parameters can receive gradients of very different magnitudes.
@@ -481,25 +526,47 @@ is an array of running gradient averages, not the hidden width
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
 from Module 1. Adam’s
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>v</mi><mi>t</mi></msub><annotation encoding="application/x-tex">v_t</annotation></semantics></math>
-averages <strong>squared</strong> gradients, whereas the momentum
-variable above accumulates gradients without squaring them. You choose
-retention factors
+averages <strong>squared</strong> gradients. The momentum accumulator
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>u</mi><mi>t</mi></msub><annotation encoding="application/x-tex">u_t</annotation></semantics></math>
+above uses the gradients themselves. You choose retention factors
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>1</mn></msub><annotation encoding="application/x-tex">\beta_1</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>2</mn></msub><annotation encoding="application/x-tex">\beta_2</annotation></semantics></math>;
 larger values retain more of the previous estimates:</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>m</mi><mi>t</mi></msub><mo>=</mo><msub><mi>β</mi><mn>1</mn></msub><msub><mi>m</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><msub><mi>β</mi><mn>1</mn></msub><mo form="postfix" stretchy="false">)</mo><msub><mi>g</mi><mi>t</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>v</mi><mi>t</mi></msub><mo>=</mo><msub><mi>β</mi><mn>2</mn></msub><msub><mi>v</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><msub><mi>β</mi><mn>2</mn></msub><mo form="postfix" stretchy="false">)</mo><msubsup><mi>g</mi><mi>t</mi><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>m</mi><mi>t</mi></msub><mo>=</mo><msub><mi>β</mi><mn>1</mn></msub><msub><mi>m</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>β</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>g</mi><mi>t</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>v</mi><mi>t</mi></msub><mo>=</mo><msub><mi>β</mi><mn>2</mn></msub><msub><mi>v</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>β</mi><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><msubsup><mi>g</mi><mi>t</mi><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
 m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,
 \qquad
 v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2.
 </annotation></semantics></math></div>
 <p>All squares and divisions in Adam are entrywise. Because both
 estimates start at zero, Adam corrects their initial bias using
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>m</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub><mo>=</mo><msub><mi>m</mi><mi>t</mi></msub><mi>/</mi><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>1</mn><mi>t</mi></msubsup><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\hat m_t=m_t/(1-\beta_1^t)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>m</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub><mo>=</mo><msub><mi>m</mi><mi>t</mi></msub><mi>/</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>1</mn><mi>t</mi></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat m_t=m_t/(1-\beta_1^t)</annotation></semantics></math>
 and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>v</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub><mo>=</mo><msub><mi>v</mi><mi>t</mi></msub><mi>/</mi><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>2</mn><mi>t</mi></msubsup><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\hat v_t=v_t/(1-\beta_2^t)</annotation></semantics></math>.
-The update is</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mfrac><msub><mover><mi>m</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub><mrow><msqrt><msub><mover><mi>v</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub></msqrt><mo>+</mo><mi>ϵ</mi></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>v</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub><mo>=</mo><msub><mi>v</mi><mi>t</mi></msub><mi>/</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>2</mn><mi>t</mi></msubsup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\hat v_t=v_t/(1-\beta_2^t)</annotation></semantics></math>.
+For a constant gradient
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+in one coordinate, the first average after
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>t</mi><annotation encoding="application/x-tex">t</annotation></semantics></math>
+updates is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>β</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mo>+</mo><mi>⋯</mi><mo>+</mo><msubsup><mi>β</mi><mn>1</mn><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mi>g</mi><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>1</mn><mi>t</mi></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><mi>g</mi></mrow><annotation encoding="application/x-tex">(1-\beta_1)(1+\beta_1+\cdots+\beta_1^{t-1})g=(1-\beta_1^t)g</annotation></semantics></math>.
+Dividing by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>1</mn><mi>t</mi></msubsup></mrow><annotation encoding="application/x-tex">1-\beta_1^t</annotation></semantics></math>
+recovers
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>.
+The same calculation for the squared gradient gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msubsup><mi>β</mi><mn>2</mn><mi>t</mi></msubsup><mo stretchy="true" form="postfix">)</mo></mrow><msup><mi>g</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">(1-\beta_2^t)g^2</annotation></semantics></math>
+and explains the second correction. At step
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>t</mi><annotation encoding="application/x-tex">t</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>θ</mi><mi>t</mi></msub><annotation encoding="application/x-tex">\theta_t</annotation></semantics></math>
+is the parameter before the step. The moments
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>m</mi><mi>t</mi></msub><annotation encoding="application/x-tex">m_t</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>v</mi><mi>t</mi></msub><annotation encoding="application/x-tex">v_t</annotation></semantics></math>
+already include the gradient at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>θ</mi><mi>t</mi></msub><annotation encoding="application/x-tex">\theta_t</annotation></semantics></math>
+and are used to compute
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">\theta_{t+1}</annotation></semantics></math>:</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>θ</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mfrac><msub><mover><mi>m</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub><mrow><msqrt><msub><mover><mi>v</mi><mo accent="true">̂</mo></mover><mi>t</mi></msub></msqrt><mo>+</mo><mi>ϵ</mi></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \theta_{t+1}=\theta_t-
 \eta_t\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon}.
 </annotation></semantics></math></div>
@@ -509,13 +576,13 @@ prevents division by zero. For each parameter, a large running average
 of squared gradients produces a larger denominator, reducing its step
 relative to the mean gradient in the numerator. Adam adapts the step
 using that parameter’s gradient history; it does not determine which
-input features matter or guarantee generalisation.<a href="#ref-3">3</a></p>
+input features matter or guarantee generalisation.<a
+href="#ref-3">3</a></p>
 <p>For a numerical comparison, choose a starting parameter
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mn>1</mn></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\theta_1=1</annotation></semantics></math>,
 a first batch gradient of 2 and learning rate
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.1</mn><annotation encoding="application/x-tex">0.1</annotation></semantics></math>.
-The round numbers make the update sizes easy to compare; the learning
-rate is not a recommendation for an inspection model. SGD changes the
+The round numbers make the update sizes easy to compare. SGD changes the
 parameter to
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.8</mn><annotation encoding="application/x-tex">0.8</annotation></semantics></math>.
 Momentum also changes it to
@@ -535,37 +602,38 @@ bias correction gives
 Ignoring a negligible
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>,
 the new parameter is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>−</mo><mn>0.1</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mi>/</mi><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0.9</mn></mrow><annotation encoding="application/x-tex">1-0.1(2/2)=0.9</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>−</mo><mn>0.1</mn><mrow><mo stretchy="true" form="prefix">(</mo><mn>2</mn><mi>/</mi><mn>2</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.9</mn></mrow><annotation encoding="application/x-tex">1-0.1(2/2)=0.9</annotation></semantics></math>.
 The same numerical learning rate therefore does not imply the same
 parameter change across optimisers. Start with the intended
 implementation’s documented retention settings and compare changes when
-training behaviour warrants them.<a href="#ref-3">3</a>,<a href="#ref-13">13</a></p>
-<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
+training behaviour warrants them.<a href="#ref-3">3</a>,<a
+href="#ref-13">13</a></p>
+<div class="table-scroll"><table>
 <colgroup>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
 </colgroup>
 <thead>
-<tr>
+<tr class="header">
 <th>Method</th>
 <th>Useful starting reason</th>
 <th>Main caution</th>
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td>SGD</td>
 <td>A transparent baseline with few moving parts</td>
 <td>Can be slow or sensitive to a single global learning rate</td>
 </tr>
-<tr>
+<tr class="even">
 <td>SGD with momentum</td>
 <td>Gradient directions contain useful consistency across batches</td>
 <td>Accumulation changes the effective update scale and can
 overshoot</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>Adam</td>
 <td>Coordinate scales differ or gradients are noisy or sparse</td>
 <td>Still requires a learning rate; adaptation does not fix disconnected
@@ -577,7 +645,40 @@ gradients or guarantee the best held-out result</td>
 Counting epochs alone can hide differences in batch size and number of
 updates. Compare data exposure, update count, compute and the metric you
 actually care about.</p>
-<h3 id="learning-rate-schedules-change-the-update-scale-over-time">Learning-rate
+<h3
+id="gradient-clipping-caps-the-gradient-norm-before-the-update">Gradient
+clipping caps the gradient norm before the update</h3>
+<p>If finite gradient norms spike just before the loss spikes, compare a
+run with global norm clipping. Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+collect the current batch-loss derivatives with respect to all trainable
+parameters. For nonzero
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">∥</mo><mi>g</mi><msub><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\lVert g\rVert_2</annotation></semantics></math>,
+multiply
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>min</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>,</mo><mi>c</mi><mi>/</mi><mo stretchy="false" form="prefix">∥</mo><mi>g</mi><msub><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\min(1,c/\lVert g\rVert_2)</annotation></semantics></math>,
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">c&gt;0</annotation></semantics></math>
+is the chosen threshold. For example, a norm of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>12</mn><annotation encoding="application/x-tex">12</annotation></semantics></math>
+and a threshold of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3</mn><annotation encoding="application/x-tex">3</annotation></semantics></math>
+multiply every entry by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>4</mn></mrow><annotation encoding="application/x-tex">1/4</annotation></semantics></math>.
+A norm of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>2</mn><annotation encoding="application/x-tex">2</annotation></semantics></math>
+is unchanged. The scaling preserves the gradient’s direction. In plain
+SGD it also caps the step norm at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>η</mi><mi>t</mi></msub><mi>c</mi></mrow><annotation encoding="application/x-tex">\eta_t c</annotation></semantics></math>.
+With momentum or Adam, the optimiser’s stored state also determines the
+actual step.</p>
+<p>Choose a threshold by inspecting the model’s finite gradient norms
+and measuring how often clipping occurs and whether loss spikes subside.
+Check nonfinite gradients separately. A zero gradient remains zero.<a
+href="#ref-12">12</a></p>
+<h3
+id="learning-rate-schedules-change-the-update-scale-over-time">Learning-rate
 schedules change the update scale over time</h3>
 <p>A single learning rate need not serve the whole run. A larger early
 rate may produce useful progress, while a smaller later rate can reduce
@@ -587,6 +688,21 @@ over updates: step decay lowers it at chosen milestones, while cosine
 decay lowers it smoothly toward a chosen minimum. A
 <strong>warmup</strong> increases it from a small starting value to a
 target rate during the opening updates.</p>
+<p>For example, use linear warmup from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.001</mn><annotation encoding="application/x-tex">0.001</annotation></semantics></math>
+at update 1 to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.01</mn><annotation encoding="application/x-tex">0.01</annotation></semantics></math>
+at update 101, then cosine decay from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.01</mn><annotation encoding="application/x-tex">0.01</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.001</mn><annotation encoding="application/x-tex">0.001</annotation></semantics></math>
+over the next 900 updates. Halfway through the decay, at update 551, the
+rate is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.0055</mn><annotation encoding="application/x-tex">0.0055</annotation></semantics></math>.
+It reaches
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.001</mn><annotation encoding="application/x-tex">0.001</annotation></semantics></math>
+at update 1001. The warmup lets the run begin with smaller steps, while
+the decay reduces step size later without an abrupt drop.</p>
 <p>You choose the schedule’s duration, milestones and minimum rate;
 these are not values learned by backpropagation. Compare them within a
 fixed update budget after establishing a stable initial rate. Warmup can
@@ -605,48 +721,6 @@ parameters learn. A normalisation layer repeatedly centres and rescales
 selected groups of activations, giving later computations a more
 controlled input scale. The choice of group determines both the
 computation and the dependencies it introduces.</p>
-<p>For a group of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
-scalar values
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>u</mi><mi>M</mi></msub></mrow><annotation encoding="application/x-tex">u_1,\ldots,u_M</annotation></semantics></math>,
-define its mean
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>u</mi><mo accent="true">‾</mo></mover><annotation encoding="application/x-tex">\bar u</annotation></semantics></math>
-and variance estimate
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">s_u^2</annotation></semantics></math>
-by</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>u</mi><mo accent="true">‾</mo></mover><mo>=</mo><mfrac><mn>1</mn><mi>M</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></munderover><msub><mi>u</mi><mi>i</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><mo>=</mo><mfrac><mn>1</mn><mi>M</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></munderover><mo form="prefix" stretchy="false">(</mo><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mover><mi>u</mi><mo accent="true">‾</mo></mover><msup><mo form="postfix" stretchy="false">)</mo><mn>2</mn></msup><mi>.</mi></mrow><annotation encoding="application/x-tex">
-\bar u=\frac1M\sum_{i=1}^M u_i,
-\qquad s_u^2=\frac1M\sum_{i=1}^M(u_i-\bar u)^2.
-</annotation></semantics></math></div>
-<p>First centre and rescale each value to obtain
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>u</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><annotation encoding="application/x-tex">\tilde u_i</annotation></semantics></math>.
-Then apply the learned scale and offset to produce the normalisation
-layer’s output
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>y</mi><mi>i</mi></msub><annotation encoding="application/x-tex">y_i</annotation></semantics></math>;
-here
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>y</mi><mi>i</mi></msub><annotation encoding="application/x-tex">y_i</annotation></semantics></math>
-denotes a layer output, not a training target:</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>u</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mrow><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mover><mi>u</mi><mo accent="true">‾</mo></mover></mrow><msqrt><mrow><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><mo>+</mo><mi>ϵ</mi></mrow></msqrt></mfrac><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>y</mi><mi>i</mi></msub><mo>=</mo><mi>γ</mi><msub><mover><mi>u</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>+</mo><mi>β</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
-\tilde u_i=\frac{u_i-\bar u}{\sqrt{s_u^2+\epsilon}},
-\qquad y_i=\gamma\tilde u_i+\beta.
-</annotation></semantics></math></div>
-<p>The positive constant
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>
-makes the division defined even for a constant group. The network learns
-the scale
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>γ</mi><annotation encoding="application/x-tex">\gamma</annotation></semantics></math>
-and offset
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>β</mi><annotation encoding="application/x-tex">\beta</annotation></semantics></math>
-by backpropagation, just as it learns weights and biases. In contrast,
-the mean
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>u</mi><mo accent="true">‾</mo></mover><annotation encoding="application/x-tex">\bar u</annotation></semantics></math>
-and variance
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">s_u^2</annotation></semantics></math>
-are calculated from the values in the group. The next two sections
-specify which values form a group and which outputs use each learned
-scale and offset. Because changing one group member also changes the
-calculated mean and variance, normalisation changes how derivatives
-connect the group’s values.</p>
 <h3 id="batch-normalisation-uses-other-observations-in-the-batch">Batch
 normalisation uses other observations in the batch</h3>
 <p>Take a dense-layer preactivation matrix
@@ -665,29 +739,75 @@ values, one from each observation. Its learned scale and offset are
 reused for that unit across all observations. In a convolutional layer,
 the usual grouping combines batch and spatial positions separately for
 each channel.<a href="#ref-4">4</a></p>
-<p>For one hidden unit, choose a batch of three observations whose
-preactivations are 1, 3 and 5. The mean is 3 and the variance estimate
-is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mn>4</mn><mo>+</mo><mn>0</mn><mo>+</mo><mn>4</mn><mo form="postfix" stretchy="false">)</mo><mi>/</mi><mn>3</mn><mo>=</mo><mn>8</mn><mi>/</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">(4+0+4)/3=8/3</annotation></semantics></math>.
-Set
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\gamma=1</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\beta=0</annotation></semantics></math>
-for this illustration so we can examine centring and scaling alone;
-these parameters can change during training. With negligible
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>,
+<p>Take the following batch of three observations and three hidden
+units. The first column contains the preactivations for unit 1.</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mrow><mo stretchy="true" form="prefix">[</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mn>1</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>2</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>6</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>3</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>4</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>7</mn></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mn>5</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>8</mn></mtd><mtd columnalign="center" style="text-align: center"><mn>9</mn></mtd></mtr></mtable><mo stretchy="true" form="postfix">]</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+Z=\begin{bmatrix}
+1&amp;2&amp;6\\
+3&amp;4&amp;7\\
+5&amp;8&amp;9
+\end{bmatrix}.
+</annotation></semantics></math></div>
+<p>To normalise the first entry with BatchNorm, use the column values
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>,</mo><mn>3</mn><mo>,</mo><mn>5</mn></mrow><annotation encoding="application/x-tex">1,3,5</annotation></semantics></math>.
+The mean is 3 and the variance estimate is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>4</mn><mo>+</mo><mn>0</mn><mo>+</mo><mn>4</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><mn>3</mn><mo>=</mo><mn>8</mn><mi>/</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">(4+0+4)/3=8/3</annotation></semantics></math>.
+Use unit scale and zero offset to isolate the effect of centring and
+scaling. Ignoring the small denominator stabiliser for this calculation,
 the first observation’s normalised value is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><mn>3</mn><mo form="postfix" stretchy="false">)</mo><mi>/</mi><msqrt><mrow><mn>8</mn><mi>/</mi><mn>3</mn></mrow></msqrt><mo>≈</mo><mi>−</mi><mn>1.225</mn></mrow><annotation encoding="application/x-tex">(1-3)/\sqrt{8/3}\approx-1.225</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mn>3</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><msqrt><mrow><mn>8</mn><mi>/</mi><mn>3</mn></mrow></msqrt><mo>≈</mo><mo>−</mo><mn>1.225</mn></mrow><annotation encoding="application/x-tex">(1-3)/\sqrt{8/3}\approx-1.225</annotation></semantics></math>.
 Change only the third observation’s preactivation from 5 to 9. The new
 mean is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>13</mn><mi>/</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">13/3</annotation></semantics></math>,
 the variance is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>104</mn><mi>/</mi><mn>9</mn></mrow><annotation encoding="application/x-tex">104/9</annotation></semantics></math>,
 and the first normalised value becomes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><mn>10</mn><mi>/</mi><msqrt><mn>104</mn></msqrt><mo>≈</mo><mi>−</mi><mn>0.981</mn></mrow><annotation encoding="application/x-tex">-10/\sqrt{104}\approx-0.981</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mn>10</mn><mi>/</mi><msqrt><mn>104</mn></msqrt><mo>≈</mo><mo>−</mo><mn>0.981</mn></mrow><annotation encoding="application/x-tex">-10/\sqrt{104}\approx-0.981</annotation></semantics></math>.
 The value entering BatchNorm for the first observation did not change,
 but its training-time output did because the batch statistics
 changed.</p>
+<p>For a group of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+scalar values
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>u</mi><mi>M</mi></msub></mrow><annotation encoding="application/x-tex">u_1,\ldots,u_M</annotation></semantics></math>,
+define its mean
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>u</mi><mo accent="true">‾</mo></mover><annotation encoding="application/x-tex">\bar u</annotation></semantics></math>
+and variance estimate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">s_u^2</annotation></semantics></math>
+used to normalise a training group by</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>u</mi><mo accent="true">‾</mo></mover><mo>=</mo><mfrac><mn>1</mn><mi>M</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></munderover><msub><mi>u</mi><mi>i</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><mo>=</mo><mfrac><mn>1</mn><mi>M</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>M</mi></munderover><msup><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mover><mi>u</mi><mo accent="true">‾</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow><mn>2</mn></msup><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\bar u=\frac1M\sum_{i=1}^M u_i,
+\qquad s_u^2=\frac1M\sum_{i=1}^M(u_i-\bar u)^2.
+</annotation></semantics></math></div>
+<p>First centre and rescale each value to obtain
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mover><mi>u</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><annotation encoding="application/x-tex">\tilde u_i</annotation></semantics></math>.
+Then apply the learned scale and offset to produce the normalisation
+layer’s output
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>u</mi><mi>i</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msubsup><annotation encoding="application/x-tex">u_i^{\mathrm{out}}</annotation></semantics></math>:</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>u</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mrow><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mover><mi>u</mi><mo accent="true">‾</mo></mover></mrow><msqrt><mrow><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><mo>+</mo><mi>ϵ</mi></mrow></msqrt></mfrac><mo>,</mo><mspace width="2.0em"></mspace><msubsup><mi>u</mi><mi>i</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msubsup><mo>=</mo><mi>γ</mi><msub><mover><mi>u</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>+</mo><mi>β</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\tilde u_i=\frac{u_i-\bar u}{\sqrt{s_u^2+\epsilon}},
+\qquad u_i^{\mathrm{out}}=\gamma\tilde u_i+\beta.
+</annotation></semantics></math></div>
+<p>The positive constant
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>
+makes the division defined even for a constant group. The network learns
+the scale
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>γ</mi><annotation encoding="application/x-tex">\gamma</annotation></semantics></math>
+and offset
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>β</mi><annotation encoding="application/x-tex">\beta</annotation></semantics></math>
+by backpropagation, just as it learns weights and biases. In contrast,
+the mean
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>u</mi><mo accent="true">‾</mo></mover><annotation encoding="application/x-tex">\bar u</annotation></semantics></math>
+and variance
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mi>s</mi><mi>u</mi><mn>2</mn></msubsup><annotation encoding="application/x-tex">s_u^2</annotation></semantics></math>
+are calculated from the values in the group. The
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mi>M</mi></mrow><annotation encoding="application/x-tex">1/M</annotation></semantics></math>
+divisor is used for the group variance in this training calculation.
+With independent samples from the same distribution,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>M</mi><mo>−</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">1/(M-1)</annotation></semantics></math>
+instead gives the usual unbiased sample variance estimate. Because
+changing one group member also changes the calculated mean and variance,
+normalisation changes how derivatives connect the group’s values.</p>
 <p>In usual inference mode, BatchNorm uses stored running statistics
 accumulated during training, together with the learned scale and offset.
 It does not estimate the deployed observation’s statistics from the
@@ -702,7 +822,8 @@ during training. Later experiments showed that reducing that proposed
 shift is not a sufficient explanation of its benefits; changes to the
 smoothness of the optimisation problem provide another account. Use the
 centring-and-scaling computation to reason about the layer, rather than
-treating its original motivation as a settled causal explanation.<a href="#ref-4">4</a>,<a href="#ref-5">5</a></p>
+treating its original motivation as a settled causal explanation.<a
+href="#ref-4">4</a>,<a href="#ref-5">5</a></p>
 <h3 id="layer-normalisation-uses-features-within-one-observation">Layer
 normalisation uses features within one observation</h3>
 <p>For the same
@@ -714,7 +835,29 @@ hidden activations in each row. One observation’s statistics therefore
 do not depend on other observations. Standard LayerNorm has a learned
 scale and offset for each normalised feature, reused across
 observations. It calculates each observation’s mean and variance from
-that observation in both training and inference.<a href="#ref-6">6</a></p>
+that observation in both training and inference.<a
+href="#ref-6">6</a></p>
+<p>Apply LayerNorm to the first row of the same matrix. Its group is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>,</mo><mn>2</mn><mo>,</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">1,2,6</annotation></semantics></math>,
+with mean
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3</mn><annotation encoding="application/x-tex">3</annotation></semantics></math>
+and variance
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>14</mn><mi>/</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">14/3</annotation></semantics></math>.
+With unit scale, zero offset and negligible
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>,
+the first entry becomes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mn>3</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><msqrt><mrow><mn>14</mn><mi>/</mi><mn>3</mn></mrow></msqrt><mo>≈</mo><mo>−</mo><mn>0.926</mn></mrow><annotation encoding="application/x-tex">(1-3)/\sqrt{14/3}\approx-0.926</annotation></semantics></math>.
+Changing the third observation’s first entry from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>5</mn><annotation encoding="application/x-tex">5</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>9</mn><annotation encoding="application/x-tex">9</annotation></semantics></math>
+leaves that first row unchanged, so its LayerNorm output stays at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mn>0.926</mn></mrow><annotation encoding="application/x-tex">-0.926</annotation></semantics></math>.
+The same change moved the first entry’s BatchNorm output from
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mn>1.225</mn></mrow><annotation encoding="application/x-tex">-1.225</annotation></semantics></math>
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><mn>0.981</mn></mrow><annotation encoding="application/x-tex">-0.981</annotation></semantics></math>
+because it changed the first column.</p>
 <p>For a sequence tensor with shape
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mi>T</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">B\times T\times d</annotation></semantics></math>,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
@@ -728,14 +871,14 @@ mean and variance across the
 features separately for each observation and position. It does not
 automatically normalise across time. Always identify the actual axes:
 “normalise the layer” alone does not specify the operation.</p>
-<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
+<div class="table-scroll"><table>
 <colgroup>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
 </colgroup>
 <thead>
-<tr>
+<tr class="header">
 <th>Property</th>
 <th>Dense BatchNorm on
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>×</mo><mi>m</mi></mrow><annotation encoding="application/x-tex">B\times m</annotation></semantics></math></th>
@@ -744,7 +887,7 @@ automatically normalise across time. Always identify the actual axes:
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td>Values used for one mean and variance</td>
 <td>One feature across
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>
@@ -753,17 +896,17 @@ observations</td>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
 features within one observation</td>
 </tr>
-<tr>
+<tr class="even">
 <td>Other observations affect training output</td>
 <td>Yes</td>
 <td>No</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>Usual inference statistics</td>
 <td>Stored running estimates</td>
 <td>Statistics of the current observation</td>
 </tr>
-<tr>
+<tr class="even">
 <td>Important limitation</td>
 <td>Batch composition and train/inference mismatch</td>
 <td>Centring and scaling can remove useful within-observation level or
@@ -784,11 +927,11 @@ representation. A <strong>residual block</strong> instead computes a
 correction and adds it to its input. Let
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math>
 be the incoming activation vector, and let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo form="prefix" stretchy="false">(</mo><mi>h</mi><mo>;</mo><msub><mi>θ</mi><mi>F</mi></msub><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">F(h;\theta_F)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>h</mi><mo>;</mo><msub><mi>θ</mi><mi>F</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">F(h;\theta_F)</annotation></semantics></math>
 be a learned branch with parameters
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>θ</mi><mi>F</mi></msub><annotation encoding="application/x-tex">\theta_F</annotation></semantics></math>.
 The block produces</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><mi>h</mi><mo>+</mo><mi>F</mi><mo form="prefix" stretchy="false">(</mo><mi>h</mi><mo>;</mo><msub><mi>θ</mi><mi>F</mi></msub><mo form="postfix" stretchy="false">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><mi>h</mi><mo>+</mo><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>h</mi><mo>;</mo><msub><mi>θ</mi><mi>F</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 h_{\mathrm{next}}=h+F(h;\theta_F).
 </annotation></semantics></math></div>
 <p>The two terms must have the same shape. When they do, a zero residual
@@ -800,16 +943,16 @@ adding depth need not require every new block to relearn how to pass
 useful information onward.<a href="#ref-7">7</a></p>
 <p>To see the derivative through a residual addition, first consider a
 single scalar input with an illustrative branch
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo form="prefix" stretchy="false">(</mo><mi>h</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0.2</mn><mi>h</mi></mrow><annotation encoding="application/x-tex">F(h)=0.2h</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>h</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.2</mn><mi>h</mi></mrow><annotation encoding="application/x-tex">F(h)=0.2h</annotation></semantics></math>.
 The output is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><mi>h</mi><mo>+</mo><mn>0.2</mn><mi>h</mi><mo>=</mo><mn>1.2</mn><mi>h</mi></mrow><annotation encoding="application/x-tex">h_{\mathrm{next}}=h+0.2h=1.2h</annotation></semantics></math>,
 so a change
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">\Delta h</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Δ</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">\Delta h</annotation></semantics></math>
 produces
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1.2</mn><mi mathvariant="normal">Δ</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">1.2\Delta h</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1.2</mn><mi>Δ</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">1.2\Delta h</annotation></semantics></math>
 at the output. If the loss derivative there is 3, the input loss
 derivative is
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>3</mn><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>+</mo><mn>0.2</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>3</mn><mo>+</mo><mn>0.6</mn><mo>=</mo><mn>3.6</mn></mrow><annotation encoding="application/x-tex">3(1+0.2)=3+0.6=3.6</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>3</mn><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>+</mo><mn>0.2</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>3</mn><mo>+</mo><mn>0.6</mn><mo>=</mo><mn>3.6</mn></mrow><annotation encoding="application/x-tex">3(1+0.2)=3+0.6=3.6</annotation></semantics></math>.
 The direct addition contributes 3 and the learned branch contributes
 0.6. These contributions add because the same input affects both
 terms.</p>
@@ -817,7 +960,7 @@ terms.</p>
 Define
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>J</mi><mi>F</mi></msub><annotation encoding="application/x-tex">J_F</annotation></semantics></math>
 as the matrix whose entry
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo form="prefix" stretchy="false">(</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(i,j)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">(</mo><mi>i</mi><mo>,</mo><mi>j</mi><mo stretchy="true" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(i,j)</annotation></semantics></math>
 is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∂</mi><msub><mi>F</mi><mi>i</mi></msub><mi>/</mi><mi>∂</mi><msub><mi>h</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\partial F_i/\partial h_j</annotation></semantics></math>:
 it describes how each branch output changes with each input entry. Let
@@ -826,16 +969,33 @@ be the identity matrix. If
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">g_{\mathrm{next}}</annotation></semantics></math>
 is the column-vector loss gradient at the block output, the input
 gradient is</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>h</mi></msub><mo>=</mo><mo form="prefix" stretchy="false">(</mo><mi>I</mi><mo>+</mo><msub><mi>J</mi><mi>F</mi></msub><msup><mo form="postfix" stretchy="false">)</mo><mi>T</mi></msup><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>+</mo><msubsup><mi>J</mi><mi>F</mi><mi>T</mi></msubsup><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>h</mi></msub><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>I</mi><mo>+</mo><msub><mi>J</mi><mi>F</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mi>T</mi></msup><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>=</mo><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>+</mo><msubsup><mi>J</mi><mi>F</mi><mi>T</mi></msubsup><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 g_h=(I+J_F)^Tg_{\mathrm{next}}
 =g_{\mathrm{next}}+J_F^Tg_{\mathrm{next}}.
 </annotation></semantics></math></div>
+<p>In the scalar example,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>J</mi><mi>F</mi></msub><annotation encoding="application/x-tex">J_F</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.2</mn><annotation encoding="application/x-tex">0.2</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mrow><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">x</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">g_{\mathrm{next}}</annotation></semantics></math>
+is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3</mn><annotation encoding="application/x-tex">3</annotation></semantics></math>.
+The two terms are
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3</mn><annotation encoding="application/x-tex">3</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.2</mn><mo>×</mo><mn>3</mn><mo>=</mo><mn>0.6</mn></mrow><annotation encoding="application/x-tex">0.2\times3=0.6</annotation></semantics></math>,
+which recover
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3.6</mn><annotation encoding="application/x-tex">3.6</annotation></semantics></math>.</p>
 <p>One contribution passes directly through the addition without
 multiplying by the residual branch’s weights. However, the two
 contributions can reinforce or cancel. In a scalar example,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mo form="prefix" stretchy="false">(</mo><mi>h</mi><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mi>−</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">F(h)=-h</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>h</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>−</mo><mi>h</mi></mrow><annotation encoding="application/x-tex">F(h)=-h</annotation></semantics></math>
 gives derivative
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>+</mo><mo form="prefix" stretchy="false">(</mo><mi>−</mi><mn>1</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">1+(-1)=0</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>+</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">1+(-1)=0</annotation></semantics></math>.
 A residual connection provides a useful route; it does not guarantee
 that the total gradient cannot vanish or explode.</p>
 <p>If the input vector and residual output have different dimensions,
@@ -849,48 +1009,56 @@ output entries,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math>
 has shape
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>×</mo><msub><mi>n</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">n</mi></mrow></msub></mrow><annotation encoding="application/x-tex">n_{\mathrm{out}}\times n_{\mathrm{in}}</annotation></semantics></math>.
-The shortcut then computes
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">P h</annotation></semantics></math>
-instead of passing
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>h</mi><annotation encoding="application/x-tex">h</annotation></semantics></math>
-through unchanged, and the block outputs
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mi>h</mi><mo>+</mo><mi>F</mi><mo form="prefix" stretchy="false">(</mo><mi>h</mi><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">P h+F(h)</annotation></semantics></math>.
-Its backward contribution uses
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>P</mi><mi>T</mi></msup><annotation encoding="application/x-tex">P^T</annotation></semantics></math>
-instead of an identity matrix. An activation after the addition also
-contributes its own derivative. These details matter when reading an
-architecture diagram: the simple identity-route equation applies to the
-addition exactly as written. Module 4 will examine how residual CNN
-blocks handle changes in spatial resolution and channel count.</p>
+The shortcut computes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mi>h</mi></mrow><annotation encoding="application/x-tex">Ph</annotation></semantics></math>,
+so the sum is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>s</mi><mo>=</mo><mi>P</mi><mi>h</mi><mo>+</mo><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>h</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">s=Ph+F(h)</annotation></semantics></math>.
+If an elementwise activation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ψ</mi><annotation encoding="application/x-tex">\psi</annotation></semantics></math>
+follows the sum, first multiply the gradient at its output
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><annotation encoding="application/x-tex">g_{\mathrm{out}}</annotation></semantics></math>
+by the activation slopes to obtain
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>s</mi></msub><mo>=</mo><msub><mi>g</mi><mrow><mi mathvariant="normal">o</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">t</mi></mrow></msub><mo>⊙</mo><mi>ψ</mi><mi>′</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">g_s=g_{\mathrm{out}}\odot\psi&#39;(s)</annotation></semantics></math>.
+The two paths then give
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>g</mi><mi>h</mi></msub><mo>=</mo><msup><mi>P</mi><mi>T</mi></msup><msub><mi>g</mi><mi>s</mi></msub><mo>+</mo><msubsup><mi>J</mi><mi>F</mi><mi>T</mi></msubsup><msub><mi>g</mi><mi>s</mi></msub></mrow><annotation encoding="application/x-tex">g_h=P^Tg_s+J_F^Tg_s</annotation></semantics></math>.
+These details matter when reading an architecture diagram: the simple
+identity-route equation applies to the addition exactly as written.
+Module 4 will examine how residual CNN blocks handle changes in spatial
+resolution and channel count.</p>
 <p>Normalisation and residual connections can complement one another,
 but they solve different problems. Normalisation changes the scale and
 dependencies of a representation; a residual addition changes how
 representations and derivatives can pass through the architecture.
 Adding either without a diagnostic reason makes its effect harder to
 interpret.</p>
-</section><section aria-labelledby="regularisation-changes-what-training-is-encouraged-to-learn"><h2 id="regularisation-changes-what-training-is-encouraged-to-learn">Regularisation
+</section><section aria-labelledby="regularisation-changes-what-training-is-encouraged-to-learn"><h2
+id="regularisation-changes-what-training-is-encouraged-to-learn">Regularisation
 changes what training is encouraged to learn</h2>
 <p>Once the network can reduce its training loss, you still need useful
 predictions on new observations. Weight decay and dropout are tools for
 that problem, although both also affect optimisation. They are not
 default repairs for a network whose gradients are disconnected or whose
 activations have collapsed.</p>
-<h3 id="l2-penalties-and-weight-decay-coincide-only-in-particular-updates">L2
+<h3
+id="l2-penalties-and-weight-decay-coincide-only-in-particular-updates">L2
 penalties and weight decay coincide only in particular updates</h3>
-<p>Let
+<p>In this example, let
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>w</mi><annotation encoding="application/x-tex">w</annotation></semantics></math>
-collect the weights selected for regularisation, and let
+collect the layer weight matrices flattened into a vector. Biases and
+normalisation scales are excluded from this penalty. Let
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>≥</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\lambda\geq0</annotation></semantics></math>
 control its strength. Adding an L2 penalty gives the objective</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>𝒥</mi><mo>=</mo><msub><mi>ℒ</mi><mrow><mi mathvariant="normal">d</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">a</mi></mrow></msub><mo>+</mo><mfrac><mi>λ</mi><mn>2</mn></mfrac><msubsup><mrow><mo form="prefix" stretchy="true">‖</mo><mi>w</mi><mo form="postfix" stretchy="true">‖</mo></mrow><mn>2</mn><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>𝒥</mi><mo>=</mo><msub><mi>ℒ</mi><mrow><mi mathvariant="normal">d</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">a</mi></mrow></msub><mo>+</mo><mfrac><mi>λ</mi><mn>2</mn></mfrac><mo stretchy="false" form="prefix">∥</mo><mi>w</mi><msubsup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \mathcal J=\mathcal L_{\mathrm{data}}+\frac\lambda2\lVert w\rVert_2^2.
 </annotation></semantics></math></div>
 <p>The penalty’s gradient is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mi>w</mi></mrow><annotation encoding="application/x-tex">\lambda w</annotation></semantics></math>.
-Under plain SGD, with data gradient
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mi>t</mi></msub><annotation encoding="application/x-tex">g_t</annotation></semantics></math>,
-the update becomes</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>w</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mo form="prefix" stretchy="false">(</mo><msub><mi>g</mi><mi>t</mi></msub><mo>+</mo><mi>λ</mi><msub><mi>w</mi><mi>t</mi></msub><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mi>λ</mi><mo form="postfix" stretchy="false">)</mo><msub><mi>w</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><msub><mi>g</mi><mi>t</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
+Under plain SGD, let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>g</mi><mi>t</mi></msub><annotation encoding="application/x-tex">g_t</annotation></semantics></math>
+be the data-loss gradient with respect to the selected weights
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>w</mi><mi>t</mi></msub><annotation encoding="application/x-tex">w_t</annotation></semantics></math>.
+Their update becomes</p>
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>w</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>g</mi><mi>t</mi></msub><mo>+</mo><mi>λ</mi><msub><mi>w</mi><mi>t</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mi>λ</mi><mo stretchy="true" form="postfix">)</mo></mrow><msub><mi>w</mi><mi>t</mi></msub><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><msub><mi>g</mi><mi>t</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">
 w_{t+1}=w_t-\eta_t(g_t+\lambda w_t)
 =(1-\eta_t\lambda)w_t-\eta_tg_t.
 </annotation></semantics></math></div>
@@ -906,7 +1074,7 @@ common factor on each step. For an illustrative scalar weight, choose
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mn>0.01</mn></mrow><annotation encoding="application/x-tex">\lambda=0.01</annotation></semantics></math>.
 Substituting these values gives the next weight:</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>−</mo><mn>0.1</mn><mo>×</mo><mn>0.01</mn><mo form="postfix" stretchy="false">)</mo><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>−</mo><mn>0.1</mn><mo form="prefix" stretchy="false">(</mo><mn>0.5</mn><mo form="postfix" stretchy="false">)</mo><mo>=</mo><mn>0.999</mn><mo form="prefix" stretchy="false">(</mo><mn>2</mn><mo form="postfix" stretchy="false">)</mo><mo>−</mo><mn>0.05</mn><mo>=</mo><mn>1.948</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>−</mo><mn>0.1</mn><mo>×</mo><mn>0.01</mn><mo stretchy="true" form="postfix">)</mo></mrow><mrow><mo stretchy="true" form="prefix">(</mo><mn>2</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mn>0.1</mn><mrow><mo stretchy="true" form="prefix">(</mo><mn>0.5</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>0.999</mn><mrow><mo stretchy="true" form="prefix">(</mo><mn>2</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mn>0.05</mn><mo>=</mo><mn>1.948</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 w_{t+1}=(1-0.1\times0.01)(2)-0.1(0.5)=0.999(2)-0.05=1.948.
 </annotation></semantics></math></div>
 <p>With Adam, adding
@@ -916,22 +1084,23 @@ coordinate-wise scaling. It no longer produces the same uniform
 shrinkage. <strong>AdamW</strong> decouples weight decay from Adam’s
 gradient adaptation: Adam’s moments use the data gradient, and a
 separate term
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>−</mi><msub><mi>η</mi><mi>t</mi></msub><mi>λ</mi><msub><mi>w</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">-\eta_t\lambda w_t</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>−</mo><msub><mi>η</mi><mi>t</mi></msub><mi>λ</mi><msub><mi>w</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">-\eta_t\lambda w_t</annotation></semantics></math>
 shrinks the selected weights. This distinction is why “Adam with an L2
-penalty” and “AdamW” are different update rules.<a href="#ref-8">8</a></p>
-<p>State which parameters receive decay: biases and normalisation scales
-are often excluded, but that is a design choice. Strong decay can
-prevent a useful fit. For scale-invariant normalised layers, shrinking
-weights can also change effective optimisation behaviour, so smaller
-weights alone are not a complete explanation of generalisation.</p>
+penalty” and “AdamW” are different update rules.<a
+href="#ref-8">8</a></p>
+<p>When configuring weight decay, specify which parameter groups receive
+it. Strong decay can prevent a useful fit. For scale-invariant
+normalised layers, shrinking weights can also change effective
+optimisation behaviour, so smaller weights alone are not a complete
+explanation of generalisation.</p>
 <p>You choose
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>λ</mi><annotation encoding="application/x-tex">\lambda</annotation></semantics></math>
 rather than learning it as a prediction weight. The value
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.01</mn><annotation encoding="application/x-tex">0.01</annotation></semantics></math>
-above makes the arithmetic visible; it is not a generally suitable
-penalty. Compare several strengths using validation performance, with
-the optimiser and loss reduction fixed, because their definitions affect
-how strongly the penalty acts.</p>
+above makes the shrinkage visible in the arithmetic. Compare several
+strengths using validation performance, with the optimiser and loss
+reduction fixed, because their definitions affect how strongly the
+penalty acts.</p>
 <h3 id="dropout-changes-the-training-computation">Dropout changes the
 training computation</h3>
 <p><strong>Dropout</strong> randomly removes selected activations during
@@ -945,22 +1114,19 @@ in the setup described here. Let
 independently equal 1 with probability
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>−</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">1-p</annotation></semantics></math>,
 otherwise 0. In <em>inverted dropout</em>, training uses</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>h</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mrow><msub><mi>r</mi><mi>i</mi></msub><msub><mi>h</mi><mi>i</mi></msub></mrow><mrow><mn>1</mn><mo>−</mo><mi>p</mi></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mn>0</mn><mo>≤</mo><mi>p</mi><mo>&lt;</mo><mn>1</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>h</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mrow><msub><mi>r</mi><mi>i</mi></msub><msub><mi>h</mi><mi>i</mi></msub></mrow><mrow><mn>1</mn><mo>−</mo><mi>p</mi></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mn>0</mn><mo>≤</mo><mi>p</mi><mo>&lt;</mo><mn>1</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \tilde h_i=\frac{r_i h_i}{1-p},\qquad 0\leq p&lt;1.
 </annotation></semantics></math></div>
 <p>Conditional on the original activation,
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo form="prefix" stretchy="false">[</mo><msub><mover><mi>h</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>∣</mo><msub><mi>h</mi><mi>i</mi></msub><mo form="postfix" stretchy="false">]</mo><mo>=</mo><msub><mi>h</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">E[\tilde h_i\mid h_i]=h_i</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><msub><mover><mi>h</mi><mo accent="true">̃</mo></mover><mi>i</mi></msub><mo>∣</mo><msub><mi>h</mi><mi>i</mi></msub><mo stretchy="true" form="postfix">]</mo></mrow><mo>=</mo><msub><mi>h</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">E[\tilde h_i\mid h_i]=h_i</annotation></semantics></math>.
 Choose
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>h</mi><mi>i</mi></msub><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">h_i=4</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>=</mo><mn>0.5</mn></mrow><annotation encoding="application/x-tex">p=0.5</annotation></semantics></math>
 to make the two possible outcomes easy to compare: the training output
-is either 0 or 8, each with probability one half. Its average is 4. The
-probability
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.5</mn><annotation encoding="application/x-tex">0.5</annotation></semantics></math>
-is illustrative, not a recommendation for every layer. At inference,
-inverted dropout leaves the activation unchanged; it does not randomly
-discard features or scale them again.<a href="#ref-9">9</a></p>
+is either 0 or 8, each with probability one half. Its average is 4. At
+inference, inverted dropout leaves the activation unchanged; it does not
+randomly discard features or scale them again.<a href="#ref-9">9</a></p>
 <p>Matching this activation’s expectation does not mean a nonlinear
 network’s deterministic prediction equals the exact average of all
 dropout predictions. Dropout introduces noise and changes the training
@@ -975,7 +1141,8 @@ probabilities while holding other settings fixed. Use validation results
 to judge whether the extra noise helps; if training fit deteriorates
 without a held-out benefit, the chosen probability or placement is not
 helping that comparison.</p>
-</section><section aria-labelledby="worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives"><h2 id="worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives">Worked
+</section><section aria-labelledby="worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives"><h2
+id="worked-diagnosis-make-a-hypothesis-distinguishable-from-alternatives">Worked
 diagnosis: make a hypothesis distinguishable from alternatives</h2>
 <p>Return to the six-hidden-layer inspection regressor. For this example
 it receives 64 precomputed numerical image features, rather than Module
@@ -987,7 +1154,8 @@ loss is mean squared prediction error. Suppose the training loss barely
 falls, hidden activations become much smaller with depth, and
 early-layer gradients are tiny. The following is a worked investigation
 of a hypothetical case.</p>
-<h3 id="establish-that-the-observations-describe-a-real-optimisation-problem">Establish
+<h3
+id="establish-that-the-observations-describe-a-real-optimisation-problem">Establish
 that the observations describe a real optimisation problem</h3>
 <p>First inspect data and the computation. Confirm that inputs and
 targets align, predictions and targets have matching shapes, the loss is
@@ -995,8 +1163,11 @@ reduced as intended, gradients are cleared between updates,
 backpropagation reaches the trainable parameters, and the optimiser
 actually updates those parameters. Check for nonfinite values. These
 implementation failures can imitate architectural problems.</p>
-<p>Next, try fitting a fixed small subset in a separate diagnostic run
-with stochastic regularisation disabled. A model that cannot
+<p>Next, try fitting a fixed, learnable subset in a separate diagnostic
+run. For example, select 32 observations and train on that same subset
+with dropout disabled. If the model uses BatchNorm, record its mode and
+batch size because both affect the calculation. State separately whether
+the diagnostic objective includes a weight penalty. A model that cannot
 substantially reduce error on a learnable small subset warrants
 implementation, capacity or optimisation investigation before
 generalisation tuning. Success would show that this setup can fit those
@@ -1008,22 +1179,29 @@ independently with standard deviation
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.05</mn><annotation encoding="application/x-tex">0.05</annotation></semantics></math>,
 and hidden biases are zero. That makes the initialisation-scale
 explanation concrete enough to test.</p>
-<h3 id="predict-an-observable-consequence-before-changing-a-component">Predict
+<h3
+id="predict-an-observable-consequence-before-changing-a-component">Predict
 an observable consequence before changing a component</h3>
 <p>The hypothesis is that the hidden initialisation makes forward
-activations collapse, contributing to weak learning signals. Under the
-approximation derived earlier, each width-64 ReLU layer multiplies the
-activation second moment by
+activations collapse, contributing to small early-layer gradients and
+updates. Under the approximation derived earlier, each width-64 ReLU
+layer multiplies the activation second moment by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.08</mn><annotation encoding="application/x-tex">0.08</annotation></semantics></math>.
-With input second moment 1, the predicted progression is:</p>
-<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
+For the standardised training features in this example, the mean is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
+and the variance is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1</mn><annotation encoding="application/x-tex">1</annotation></semantics></math>,
+so the input second moment is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><msup><mi>X</mi><mn>2</mn></msup><mo stretchy="true" form="postfix">]</mo></mrow><mo>=</mo><mo>Var</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>X</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>+</mo><mi>E</mi><msup><mrow><mo stretchy="true" form="prefix">[</mo><mi>X</mi><mo stretchy="true" form="postfix">]</mo></mrow><mn>2</mn></msup><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">E[X^2]=\operatorname{Var}(X)+E[X]^2=1</annotation></semantics></math>.
+The predicted progression is:</p>
+<div class="table-scroll"><table>
 <colgroup>
-<col style="width: 27%"/>
-<col style="width: 36%"/>
-<col style="width: 36%"/>
+<col style="width: 27%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
 </colgroup>
 <thead>
-<tr>
+<tr class="header">
 <th>Location</th>
 <th style="text-align: right;">Predicted second moment with standard
 deviation 0.05</th>
@@ -1031,33 +1209,34 @@ deviation 0.05</th>
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td>Input</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 </tr>
-<tr>
+<tr class="even">
 <td>After hidden layer 1</td>
 <td style="text-align: right;">0.08</td>
 <td style="text-align: right;">Approximately 1</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>After hidden layer 3</td>
 <td style="text-align: right;">0.000512</td>
 <td style="text-align: right;">Approximately 1</td>
 </tr>
-<tr>
+<tr class="even">
 <td>After hidden layer 6</td>
 <td style="text-align: right;">0.000000262144</td>
 <td style="text-align: right;">Approximately 1</td>
 </tr>
 </tbody>
 </table></div>
-<p>These are calculated expectations under simplifying assumptions, not
-measured values. A finite network need not match them exactly. The
-prediction is a strong depth-related decline with the original rule and
-a substantially flatter initial scale with He initialisation.</p>
-<h3 id="change-one-factor-and-compare-the-quantities-the-hypothesis-predicts">Change
+<p>A finite network can depart from these expectations because they
+average over the initial weights and inputs. The prediction is a strong
+depth-related decline with the original rule and a substantially flatter
+initial scale with He initialisation.</p>
+<h3
+id="change-one-factor-and-compare-the-quantities-the-hypothesis-predicts">Change
 one factor and compare the quantities the hypothesis predicts</h3>
 <p>Compare the original hidden initialisation with fan-in He
 initialisation, leaving the output-layer rule unchanged. Hold the
@@ -1075,21 +1254,32 @@ changes. A gradient norm measures the magnitude of all entries in a
 layer’s gradient; one useful choice is the square root of their summed
 squares. To interpret update size relative to existing parameters,
 record</p>
-<div aria-label="Mathematical equation" class="math-display" role="group" tabindex="0"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ρ</mi><mi>ℓ</mi></msub><mo>=</mo><mfrac><msub><mrow><mo form="prefix" stretchy="true">‖</mo><mi mathvariant="normal">Δ</mi><msub><mi>W</mi><mi>ℓ</mi></msub><mo form="postfix" stretchy="true">‖</mo></mrow><mi>F</mi></msub><mrow><msub><mrow><mo form="prefix" stretchy="true">‖</mo><msub><mi>W</mi><mi>ℓ</mi></msub><mo form="postfix" stretchy="true">‖</mo></mrow><mi>F</mi></msub><mo>+</mo><mi>ϵ</mi></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<div class="math-display"><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ρ</mi><mo>ℓ</mo></msub><mo>=</mo><mfrac><mrow><mo stretchy="false" form="prefix">∥</mo><mi>Δ</mi><msub><mi>W</mi><mo>ℓ</mo></msub><msub><mo stretchy="false" form="postfix">∥</mo><mi>F</mi></msub></mrow><mrow><mo stretchy="false" form="prefix">∥</mo><msub><mi>W</mi><mo>ℓ</mo></msub><msub><mo stretchy="false" form="postfix">∥</mo><mi>F</mi></msub><mo>+</mo><msub><mi>ϵ</mi><mi>ρ</mi></msub></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \rho_\ell=
 \frac{\lVert\Delta W_\ell\rVert_F}
-{\lVert W_\ell\rVert_F+\epsilon}.
+{\lVert W_\ell\rVert_F+\epsilon_\rho}.
 </annotation></semantics></math></div>
 <p>Here
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Δ</mi><msub><mi>W</mi><mi>ℓ</mi></msub></mrow><annotation encoding="application/x-tex">\Delta W_\ell</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Δ</mi><msub><mi>W</mi><mo>ℓ</mo></msub></mrow><annotation encoding="application/x-tex">\Delta W_\ell</annotation></semantics></math>
 is the actual change from one update, the matrix norm means the square
-root of the sum of squared entries, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ϵ</mi><annotation encoding="application/x-tex">\epsilon</annotation></semantics></math>
-only protects a zero denominator. There is no universal healthy value of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ρ</mi><mi>ℓ</mi></msub><annotation encoding="application/x-tex">\rho_\ell</annotation></semantics></math>.
-Compare its trajectory across layers and the two conditions. With Adam,
-actual updates are especially informative because raw gradient
-magnitudes do not directly determine step magnitudes.</p>
+root of the sum of squared entries, and the small positive constant
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ϵ</mi><mi>ρ</mi></msub><annotation encoding="application/x-tex">\epsilon_\rho</annotation></semantics></math>
+protects a zero denominator. For example, if a layer’s weight norm is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>2</mn><annotation encoding="application/x-tex">2</annotation></semantics></math>
+and one update has norm
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.002</mn><annotation encoding="application/x-tex">0.002</annotation></semantics></math>,
+the ratio is approximately
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.001</mn><annotation encoding="application/x-tex">0.001</annotation></semantics></math>,
+or
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.1</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">0.1\%</annotation></semantics></math>.
+If its next update has norm
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.006</mn><annotation encoding="application/x-tex">0.006</annotation></semantics></math>
+with a similar weight norm, the ratio rises to about
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.3</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">0.3\%</annotation></semantics></math>.
+Compare these trajectories across layers and between the two conditions
+alongside the training loss. With Adam, actual updates are especially
+informative because raw gradient magnitudes do not directly determine
+step magnitudes.</p>
 <p>If the new initialisation flattens the initial activation scales,
 increases useful early-layer updates and consistently improves training
 loss at the fixed budget, the results support this hypothesis. They do
@@ -1101,44 +1291,46 @@ hypothesis loses support; changing more components at once would hide
 that result.</p>
 <h3 id="choose-the-next-intervention-from-the-remaining-evidence">Choose
 the next intervention from the remaining evidence</h3>
-<div aria-label="Lesson table" class="table-scroll" role="region" tabindex="0"><table>
+<div class="table-scroll"><table>
 <colgroup>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
-<col style="width: 33%"/>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
 </colgroup>
 <thead>
-<tr>
+<tr class="header">
 <th>Remaining observation</th>
 <th>Plausible next comparison</th>
 <th>Reason and limitation</th>
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td>Loss spikes or diverges; updates are very large</td>
 <td>Reduce the learning rate with other settings fixed</td>
 <td>Tests overshooting; also check numerical and data errors</td>
 </tr>
-<tr>
+<tr class="even">
 <td>Finite but very large gradient norms precede spikes</td>
-<td>Compare with global gradient-norm clipping</td>
-<td>Limits occasional large updates; does not repair vanishing
-derivatives or diagnose their source</td>
+<td>Compare with <a
+href="#gradient-clipping-caps-the-gradient-norm-before-the-update">global
+gradient-norm clipping</a></td>
+<td>Caps the gradient norm before the optimiser step. Check whether
+actual update and loss spikes subside</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>Scales are reasonable, updates are persistently tiny, loss falls
 slowly</td>
 <td>Test a larger learning rate within a bounded range</td>
 <td>Tests conservative steps; a larger rate may become unstable</td>
 </tr>
-<tr>
+<tr class="even">
 <td>Deeper plain model fits worse after scale and update checks</td>
 <td>Compare a suitable residual version</td>
 <td>Tests an architectural route to easier fitting; changes
 architecture, so use a separate comparison</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>Training fit is good but held-out error worsens</td>
 <td>Test weight decay or dropout individually; inspect data and
 validation</td>
@@ -1146,26 +1338,6 @@ validation</td>
 </tr>
 </tbody>
 </table></div>
-<p>For gradient clipping, let
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
-collect the batch’s gradients and choose a threshold
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">c&gt;0</annotation></semantics></math>.
-Global norm clipping replaces
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
-by
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mrow><mi mathvariant="normal">min</mi><mo>⁡</mo></mrow><mo form="prefix" stretchy="false">(</mo><mn>1</mn><mo>,</mo><mi>c</mi><mi>/</mi><msub><mrow><mo form="prefix" stretchy="true">‖</mo><mi>g</mi><mo form="postfix" stretchy="true">‖</mo></mrow><mn>2</mn></msub><mo form="postfix" stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">g\min(1,c/\lVert g\rVert_2)</annotation></semantics></math>
-when its norm is nonzero. If the norm is at most
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>,
-the multiplier is 1 and the gradient is unchanged. Above
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>,
-it rescales the gradient to norm
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>
-while preserving its direction. Choose a threshold by inspecting the
-finite gradient norms of the model and checking whether clipping curbs
-spikes without making most useful updates very small. There is no
-universal threshold independent of loss reduction and model scale;
-clipping cannot make nonfinite gradients trustworthy or recover
-gradients that are zero.<a href="#ref-12">12</a></p>
 <p>The central skill is to write down an explanation that could be
 contradicted by the comparison. A falling loss after changing
 initialisation, optimiser, normalisation and dropout together would show
@@ -1188,12 +1360,10 @@ separate questions. Module 3 examines the latter: what information
 hidden features retain, what their similarities mean, and how the
 objective shapes that organisation.</p>
 </section><section aria-labelledby="references"><h2 id="references">References</h2>
-<p>Primary sources checked on 2 November 2026. Numerical examples, the
-inspection scenario and the diagnostic table are original teaching
-constructions. Source results do not validate those hypothetical
-observations.</p>
-<ol class="references" type="1">
-<li><span id="ref-1"></span>Glorot, X. &amp; Bengio, Y. (2010). <a href="https://proceedings.mlr.press/v9/glorot10a.html">Understanding the
+<p>Primary sources checked on 2 November 2026.</p>
+<ol class="references">
+<li><span id="ref-1"></span>Glorot, X. &amp; Bengio, Y. (2010). <a
+href="https://proceedings.mlr.press/v9/glorot10a.html">Understanding the
 difficulty of training deep feedforward neural networks</a>.
 <em>AISTATS</em>, PMLR 9, 249–256. Initialisation, saturation and
 propagation of activation/gradient scale.</li>
@@ -1202,10 +1372,12 @@ propagation of activation/gradient scale.</li>
 Rectifiers: Surpassing Human-Level Performance on ImageNet
 Classification</a>. <em>ICCV</em>. Rectifier-aware initialisation and
 its assumptions.</li>
-<li><span id="ref-3"></span>Kingma, D. P. &amp; Ba, J. (2015). <a href="https://arxiv.org/abs/1412.6980">Adam: A Method for Stochastic
+<li><span id="ref-3"></span>Kingma, D. P. &amp; Ba, J. (2015). <a
+href="https://arxiv.org/abs/1412.6980">Adam: A Method for Stochastic
 Optimization</a>. <em>ICLR</em>. Adaptive moment estimates and
 bias-corrected update.</li>
-<li><span id="ref-4"></span>Ioffe, S. &amp; Szegedy, C. (2015). <a href="https://proceedings.mlr.press/v37/ioffe15.html">Batch
+<li><span id="ref-4"></span>Ioffe, S. &amp; Szegedy, C. (2015). <a
+href="https://proceedings.mlr.press/v37/ioffe15.html">Batch
 Normalization: Accelerating Deep Network Training by Reducing Internal
 Covariate Shift</a>. <em>ICML</em>, PMLR 37, 448–456. Training
 statistics, learned affine parameters and inference behaviour.</li>
@@ -1222,18 +1394,22 @@ from batch composition.</li>
 (2016). <a href="https://arxiv.org/abs/1512.03385">Deep Residual
 Learning for Image Recognition</a>. <em>CVPR</em>. Residual formulation,
 identity and projection shortcuts.</li>
-<li><span id="ref-8"></span>Loshchilov, I. &amp; Hutter, F. (2019). <a href="https://arxiv.org/abs/1711.05101">Decoupled Weight Decay
+<li><span id="ref-8"></span>Loshchilov, I. &amp; Hutter, F. (2019). <a
+href="https://arxiv.org/abs/1711.05101">Decoupled Weight Decay
 Regularization</a>. <em>ICLR</em>. Distinction between adaptive L2
 updates and decoupled weight decay.</li>
 <li><span id="ref-9"></span>Srivastava, N., Hinton, G., Krizhevsky, A.,
-Sutskever, I. &amp; Salakhutdinov, R. (2014). <a href="https://jmlr.org/papers/v15/srivastava14a.html">Dropout: A Simple
+Sutskever, I. &amp; Salakhutdinov, R. (2014). <a
+href="https://jmlr.org/papers/v15/srivastava14a.html">Dropout: A Simple
 Way to Prevent Neural Networks from Overfitting</a>. <em>JMLR</em> 15,
 1929–1958. Dropout mechanism; this lesson uses the equivalent
 inverted-scaling convention.</li>
-<li><span id="ref-10"></span>PyTorch documentation, version 2.9. <a href="https://docs.pytorch.org/docs/2.9/generated/torch.optim.SGD.html">SGD</a>.
+<li><span id="ref-10"></span>PyTorch documentation, version 2.9. <a
+href="https://docs.pytorch.org/docs/2.9/generated/torch.optim.SGD.html">SGD</a>.
 Explicit update conventions and implementation differences for
 momentum.</li>
-<li><span id="ref-11"></span>Loshchilov, I. &amp; Hutter, F. (2017). <a href="https://arxiv.org/abs/1608.03983">SGDR: Stochastic Gradient
+<li><span id="ref-11"></span>Loshchilov, I. &amp; Hutter, F. (2017). <a
+href="https://arxiv.org/abs/1608.03983">SGDR: Stochastic Gradient
 Descent with Warm Restarts</a>. <em>ICLR</em>. Cosine schedules and warm
 restarts.</li>
 <li><span id="ref-12"></span>Pascanu, R., Mikolov, T. &amp; Bengio, Y.
@@ -1241,7 +1417,8 @@ restarts.</li>
 the difficulty of training recurrent neural networks</a>. <em>ICML</em>,
 PMLR 28(3), 1310–1318. Gradient-norm clipping; recurrent models
 themselves are covered in Module 5.</li>
-<li><span id="ref-13"></span>PyTorch documentation, version 2.9. <a href="https://docs.pytorch.org/docs/2.9/generated/torch.optim.Adam.html">Adam</a>.
+<li><span id="ref-13"></span>PyTorch documentation, version 2.9. <a
+href="https://docs.pytorch.org/docs/2.9/generated/torch.optim.Adam.html">Adam</a>.
 Gradient-moment updates and documented starting retention settings;
 consulted for implementation details rather than as a claim about the
 latest release.</li>

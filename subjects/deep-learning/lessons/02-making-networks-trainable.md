@@ -1,6 +1,6 @@
 # Module 2 — Making networks trainable
 
-_Week 2 · Core lesson · Authored 2 November 2026 · Revised 3 November 2026_
+_Week 2 · Core lesson · Authored 2 November 2026 · Revised 7 November 2026_
 
 [Read the formatted HTML lesson](02-making-networks-trainable.html) · [Course contents](../index.html) · [Previous: Module 1](01-from-conventional-ml-to-differentiable-models.html)
 
@@ -8,15 +8,17 @@ _Week 2 · Core lesson · Authored 2 November 2026 · Revised 3 November 2026_
 
 Module 1 showed how a network calculates a prediction, how backpropagation calculates gradients, and how a parameter update uses those gradients. Here we ask what happens when those operations are mathematically valid but training makes little progress. You should already be able to follow an affine layer, ReLU, the chain rule and a mean batch loss. Familiarity with training and validation splits is assumed.
 
-By the end, you should be able to explain how initialisation and activation functions affect signal scale; trace why gradients can shrink or grow with depth; compare SGD, momentum and Adam; and explain the different roles of normalisation, residual connections, weight decay and dropout. Most importantly, you should be able to turn an observed training failure into a diagnostic hypothesis and a controlled comparison, while distinguishing **trainability** from **generalisation**.
+By the end, you should be able to explain how initialisation and activation functions affect activation and gradient magnitudes. You should also be able to trace why gradients shrink or grow with depth, compare SGD, momentum and Adam, and explain the different roles of normalisation, residual connections, weight decay and dropout. Most importantly, you should be able to turn an observed training failure into a diagnostic hypothesis and a controlled comparison, while distinguishing **trainability** from **generalisation**.
 
-We will use a deeper version of the inspection model from Module 1: numerical image features enter several hidden layers, and a final affine layer predicts a defect-severity score. All numerical examples and diagnostic observations below are illustrative. They are not measurements from a trained inspection model.
+We will use a deeper version of the inspection model from Module 1: numerical image features enter several hidden layers, and a final affine layer predicts a defect-severity score. The numerical examples and diagnostic observations are hypothetical.
 
 ## Why a larger network can fit the training data worse
 
 Suppose a two-hidden-layer inspection model reduces training loss steadily, but a six-hidden-layer model barely improves. More layers give you more adjustable transformations, yet the training algorithm may struggle to find useful parameters. The distinction matters: a flexible model can represent useful functions without your chosen initialisation and update rule being able to reach them efficiently.
 
-The entire training process has four cooperating parts. **The architecture** specifies the forward computation. **The objective** scores its predictions. **Backpropagation** differentiates that objective through the computation. **The optimiser** uses the gradients and its stored state to update parameters. Initialisation chooses where this process begins. Training therefore depends on more than whether the forward pass returns an output or the loss has a derivative.
+**Trainability** is how reliably the chosen training setup reduces the training loss within a given budget. **Generalisation** is how well the trained model performs on unseen observations from the population of interest.
+
+Initialisation sets the starting parameter values. Four components then determine how each training step works. **The architecture** specifies the forward computation. **The objective** scores its predictions. **Backpropagation** differentiates that objective through the computation. **The optimiser** uses the gradients and its stored state to update parameters. Training therefore depends on more than whether the forward pass returns an output or the loss has a derivative.
 
 As the model designer, you choose the number and width of the layers, the initialisation rule and the optimiser settings. These are **hyperparameters**, as is the dropout probability introduced later. Training updates the model's weights and biases within the architecture you chose. The optimiser may also update running averages of gradients; those averages are calculated from the gradients, rather than selected by validation or fitted as prediction weights. Keeping these quantities separate will help us interpret the update equations.
 
@@ -26,7 +28,7 @@ A useful first distinction is between two problems you already recognise from co
 
 | Observation | What it suggests | What it does not establish |
 | --- | --- | --- |
-| Training loss remains high or becomes unstable | Investigate implementation, objective, signal scale, gradients and updates | It does not establish that the architecture lacks capacity |
+| Training loss remains high or becomes unstable | Investigate implementation, the objective, activation magnitudes, gradients and updates | It does not establish that the architecture lacks capacity |
 | Training loss is low but held-out performance is poor | Investigate generalisation, data leakage, distribution mismatch and objective–metric alignment | A more powerful optimiser alone need not help |
 | Training and validation both improve slowly | Several explanations remain: small updates, difficult optimisation, insufficient capacity or a noisy objective | The curves alone cannot identify the cause |
 
@@ -38,32 +40,26 @@ To understand why an early layer may learn slowly, we will first follow the numb
 
 ### Follow one network before examining its derivatives
 
-For one observation, let $x$ be the column vector of input features. The network has $L$ hidden layers, followed by an affine output layer that predicts one score. Let $h_0=x$. Hidden layer $\ell$ receives the previous activation vector $h_{\ell-1}$ and computes
+Each step backward through a single chain multiplies the loss derivative by a connecting weight and the local slope of the activation. Across many layers, those factors can make the derivative shrink or grow.
+
+Take an inspection model with one numerical input, two one-unit ReLU layers and an affine output. Use input $x=1$, first hidden weight $1$, second hidden weight $2$, and output weight $1$. All biases are zero. The first preactivation is $z_1=1$, so the first activation is $h_1=1$. The second preactivation is $z_2=2h_1=2$, so the second activation is $h_2=2$. The output gives $\hat y=h_2=2$. For target $y=1$, the half squared loss $\mathcal L=\tfrac12(\hat y-y)^2$ is $0.5$.
+
+Work backward with the target and all parameters fixed. The loss derivative with respect to the prediction is $\hat y-y=1$. The output weight is $1$ and the second ReLU's local slope is $1$, so the loss derivative with respect to $z_2$ is $1\times1\times1=1$. Moving back to $z_1$ adds two factors. The connection from $h_1$ to $z_2$ has weight $2$, and the first ReLU has local slope $1$. The loss derivative with respect to $z_1$ is therefore $1\times2\times1=2$. If we now vary the first weight alone, its effect on $z_1$ is multiplied by the input $x=1$, giving a loss derivative of $2\times1=2$ for that weight.
+
+ReLU has slope $1$ at positive preactivations and $0$ at negative preactivations. At zero its mathematical derivative is undefined. As in Module 1, backpropagation here uses a local slope of $0$ at zero, so no gradient passes through that activation.
+
+For a network with $L$ hidden layers, let $h_0=x$, where $x$ is now the input feature vector. In hidden layer $\ell$, the weight matrix $W_\ell$ and bias vector $b_\ell$ produce the preactivation vector $z_\ell=W_\ell h_{\ell-1}+b_\ell$. Each row of $W_\ell$ contains one receiving unit’s weights. Its columns correspond to the entries of $h_{\ell-1}$. Applying the chosen activation $\phi_\ell$ entry by entry gives $h_\ell=\phi_\ell(z_\ell)$. The affine output uses the weight row $W_{\mathrm{out}}$ and bias $b_{\mathrm{out}}$ to predict $\hat y=W_{\mathrm{out}}h_L+b_{\mathrm{out}}$.
+
+Let $\delta_\ell$ collect the loss derivatives with respect to the entries of $z_\ell$, and let $d_{\mathrm{out}}=\partial\mathcal L/\partial\hat y$ be the scalar loss derivative at the prediction. The output provides the starting value for the last hidden layer. From there, the same chain rule applies between adjacent hidden layers:
 
 $$
-z_\ell=W_\ell h_{\ell-1}+b_\ell,
-\qquad h_\ell=\phi(z_\ell).
+\delta_L=(W_{\mathrm{out}}^T d_{\mathrm{out}})\odot\phi_L'(z_L),
+\qquad
+\delta_\ell=(W_{\ell+1}^T\delta_{\ell+1})\odot\phi_\ell'(z_\ell)
+\quad (\ell<L).
 $$
 
-Here, $W_\ell$ and $b_\ell$ are that layer's weights and biases; $z_\ell$ contains its preactivations; and $\phi$ applies an activation function entry by entry. If layer $\ell-1$ has $n_{\ell-1}$ units and layer $\ell$ has $n_\ell$, then $W_\ell$ has shape $n_\ell\times n_{\ell-1}$ and $h_\ell$ has $n_\ell$ entries. Input values and activations depend on the observation; the same parameters are reused for every observation. The final prediction is $\hat y=W_{\mathrm{out}}h_L+b_{\mathrm{out}}$, and its loss is the scalar $\mathcal L$.
-
-To update an early weight, we need to connect its change to the final loss. First consider one illustrative connection: a hidden activation $a$ enters a later unit whose preactivation is $z=2a+b$. Holding the connecting weight 2, the bias and the other inputs fixed, a change $\Delta a$ produces $\Delta z=2\Delta a$. Suppose the loss derivative at this later preactivation is 3. Then
-
-$$
-\Delta\mathcal L\approx3\Delta z=3(2\Delta a)=6\Delta a.
-$$
-
-Thus the loss derivative with respect to $a$ is $3\times2=6$. The weight supplies the rate from activation to later preactivation; multiplying by the later loss derivative connects that activation to the loss. These numbers illustrate the calculation, not fitted network values. If the activation is $a=\operatorname{ReLU}(s)$, where $s$ is its preactivation, we must also multiply by the activation derivative: at positive $s$ it is 1, giving a derivative of 6 with respect to $s$; at negative $s$ it is 0, giving zero. If the activation feeds several later units, add the contributions through those connections.
-
-The matrix equation below collects these same per-connection calculations for a whole layer. Define $\delta_\ell=\partial\mathcal L/\partial z_\ell$: entry $i$ is the loss's derivative with respect to preactivation $i$ in layer $\ell$. For adjacent hidden layers, the chain rule gives
-
-$$
-\delta_\ell=
-\left(W_{\ell+1}^{T}\delta_{\ell+1}\right)
-\odot\phi'(z_\ell).
-$$
-
-The symbol $\odot$ means entrywise multiplication. Entry $i$ of $W_{\ell+1}^{T}\delta_{\ell+1}$ sums the later units' loss derivatives multiplied by their connecting weights from activation $i$. Multiplying that sum by $\phi'(z_\ell)_i$ accounts for how activation $i$ changes with its preactivation. This is the same multiplication by 2 and then by the ReLU derivative in the scalar example, with contributions summed where there are several connections. Repeating this calculation explains how early-layer gradients accumulate products of weights and activation derivatives.[1](#ref-1)
+The symbol $\odot$ means entrywise multiplication. Entry $i$ of $W_{\ell+1}^T\delta_{\ell+1}$ adds the contributions from all later units connected to activation $i$. Multiplying by the local slope at preactivation $i$ gives the corresponding entry of $\delta_\ell$. In the two-hidden-layer trace there is only one entry at each step: the output starts $\delta_2$ at $(1\times1)\times1=1$, and the hidden-layer formula gives $\delta_1=(2\times1)\times1=2$.[1](#ref-1)
 
 For one observation, the corresponding weight gradient is
 
@@ -72,17 +68,17 @@ $$
 =\delta_\ell h_{\ell-1}^{T}.
 $$
 
-This outer product has the same shape as $W_\ell$. It reveals two reasons a weight gradient can be small: the backward derivative $\delta_\ell$ can be small, or the incoming activation $h_{\ell-1}$ can be small. For a mean batch loss, average these per-observation contributions. A small gradient is not automatically a fault; it is suspicious when a model with substantial remaining error receives too little useful update to reduce that error.
+This outer product has the same shape as $W_\ell$. It reveals two reasons a weight gradient can be small: the loss derivatives collected in $\delta_\ell$ can be small, or the incoming activation $h_{\ell-1}$ can be small. For a mean batch loss, average these per-observation contributions. A small gradient is not automatically a fault; it is suspicious when a model with substantial remaining error receives too little useful update to reduce that error.
 
 ### A scalar calculation makes the multiplication visible
 
-To isolate the effect of repeated multiplication, choose a single illustrative path with 12 successive local derivatives, each equal to $0.5$. These numbers are chosen for calculation, not measured from a network. A derivative of 1 at the end becomes $0.5^{12}\approx0.000244$ at the beginning. If each factor is $1.5$, the result is $1.5^{12}\approx129.75$. These are examples of **vanishing gradients** and **exploding gradients**: derivatives repeatedly shrink or grow as they propagate through the computation.
+To isolate the effect of repeated multiplication, choose a single illustrative path with 12 successive local derivatives, each equal to $0.5$. A derivative of 1 at the end becomes $0.5^{12}\approx0.000244$ at the beginning. If each factor is $1.5$, the result is $1.5^{12}\approx129.75$. These are examples of **vanishing gradients** and **exploding gradients**: derivatives repeatedly shrink or grow as they propagate through the computation.
 
 A real network has many paths, matrix products and input-dependent derivatives. Some directions can shrink while others grow. The scalar calculation illustrates multiplication; it does not predict every gradient from the network's depth alone.
 
-The activation function affects those factors. A sigmoid activation $\sigma(z)=1/(1+e^{-z})$ has derivative $\sigma(z)(1-\sigma(z))$, at most $1/4$ and much smaller for large positive or negative preactivations. In those saturated regions, substantial changes in $z$ barely change the activation. The backward derivative therefore shrinks at that operation. ReLU has derivative 1 for positive preactivations and 0 for negative ones. It avoids positive-side saturation, but a unit that stays negative for all relevant inputs receives zero gradient through ReLU. Changing a negative unit's incoming weights through that path cannot revive it while those derivatives remain zero.[1](#ref-1),[2](#ref-2)
+The activation function affects those factors. A sigmoid activation $\sigma(z)=1/(1+e^{-z})$ has derivative $\sigma(z)(1-\sigma(z))$, at most $1/4$ and much smaller for large positive or negative preactivations. In those saturated regions, substantial changes in $z$ barely change the activation. That small local slope reduces the loss derivative passed through the activation. ReLU avoids positive-side saturation, but a unit that stays negative for all relevant inputs receives zero gradient through ReLU. Changing a negative unit's incoming weights through that path cannot revive it while those derivatives remain zero.[1](#ref-1),[2](#ref-2)
 
-Large positive ReLU outputs are also unbounded. Replacing sigmoid with ReLU does not prevent large weight products from amplifying activations or gradients. Activation choice and parameter scale have to work together.
+Large positive ReLU outputs are also unbounded. Replacing sigmoid with ReLU does not prevent large weight products from amplifying activations or gradients. Activation choice and initial weight magnitudes have to work together.
 
 ## Initialisation sets the scale at which learning begins
 
@@ -90,27 +86,27 @@ Large positive ReLU outputs are also unbounded. Replacing sigmoid with ReLU does
 
 If all hidden units in a layer start with identical incoming weights and biases, they calculate identical activations. In an otherwise symmetric network, they can receive identical updates and remain copies of one another. Random weights break that symmetry. Biases can often start at zero because distinct weights already make the units different.
 
-The magnitude of those random weights matters as much as their differences. Consider one unit with $n$ inputs. Write its weighted sum as $z=\sum_{j=1}^{n}w_jh_j$, choosing a zero bias for this calculation. We choose an initialisation rule that draws independent weights with mean zero and variance $s^2$, independently of the incoming activations. The variance describes the distribution of starting weights, not a constraint on their values after training. Let the incoming activations have a common **second moment** $q=E[h_j^2]$, meaning their average squared magnitude. Averaging over the random initialisation and input distribution gives the approximate scale relation
+The magnitude of the random weights controls how quickly activations shrink or grow at the start of training. For ReLU, **fan-in He initialisation** sets the weight variance to $2/n$, where the fan-in $n$ is the number of inputs. In the 64-input example below, this gives a standard deviation of $\sqrt{2/64}\approx0.1768$. To see why this value works, consider what one unit does to the average squared activation. Write its weighted sum as $z=\sum_{j=1}^{n}w_jh_j$, choosing a zero bias for this calculation. We choose an initialisation rule that draws independent weights with mean zero and variance $s^2$, independently of the incoming activations. The variance describes the distribution of starting weights, not a constraint on their values after training. Let the incoming activations have a common **second moment** $q=E[h_j^2]$, meaning their average squared magnitude. Averaging over the random initialisation and input distribution gives the approximate scale relation
 
 $$
 E[z^2]\approx n s^2 q.
 $$
 
-The second moment includes both variability and a nonzero mean. For instance, a constant activation of 2 has variance zero but second moment 4. We use the second moment because ReLU outputs generally have a positive mean. Under an approximately symmetric preactivation distribution, ReLU keeps half the squared magnitude on average, so
+The second moment includes both variability and a nonzero mean. For instance, a constant activation of 2 has variance zero but second moment 4. We use the second moment because ReLU outputs generally have a positive mean. When the preactivation distribution is approximately symmetric about zero, positive and negative values contribute about equally to $E[z^2]$ because $z$ and $-z$ have the same square. ReLU keeps the positive contribution and sets the negative contribution to zero. The resulting second moment is
 
 $$
 E[\operatorname{ReLU}(z)^2]\approx\frac12 n s^2q.
 $$
 
-The factor $n$ appears because the unit sums $n$ weighted inputs. If the incoming width increases while weight variance stays fixed, that sum tends to grow. Choosing $s^2=2/n$ approximately preserves the forward second moment for ReLU. This is **He initialisation** with a fan-in convention: *fan-in* means the number of inputs to a unit.[2](#ref-2)
+The factor $n$ appears because the unit sums $n$ weighted inputs. If the incoming width increases while weight variance stays fixed, that sum tends to grow. Setting the multiplier $ns^2/2$ to $1$ gives $s^2=2/n$, which approximately preserves the forward second moment.[2](#ref-2)
 
-Choose 64 incoming units for an illustrative calculation. This is a hypothetical width, not a recommendation or a value determined by the number of input features. The corresponding He weight standard deviation is $\sqrt{2/64}\approx0.1768$. To contrast it with a poorly scaled start, choose a smaller standard deviation of $0.05$. That gives a second-moment multiplier of $64(0.05)^2/2=0.08$ per layer under this approximation. Across six such layers, the multiplier is $0.08^6=2.62144\times10^{-7}$. Tiny initial weights can therefore make activations rapidly collapse even though the network contains many parameters.
+For the same 64-input ReLU unit, compare He initialisation with a smaller weight standard deviation of $0.05$. That gives a second-moment multiplier of $64(0.05)^2/2=0.08$ per layer under this approximation. Across six such layers, the multiplier is $0.08^6=2.62144\times10^{-7}$. Tiny initial weights can therefore make activations rapidly collapse even though the network contains many parameters.
 
 This calculation describes an initialisation model, not a guarantee for trained networks. Learned correlations, changing weight distributions, unequal widths, biases and other components alter the result. Preserving a forward average also does not guarantee that every backward direction has a useful scale.
 
 ### Match the rule to the activation and architecture
 
-**Glorot, or Xavier, initialisation** balances forward and backward scale with weight variance approximately $2/(n_{\mathrm{in}}+n_{\mathrm{out}})$ under its assumptions. Here, $n_{\mathrm{in}}$ is fan-in and $n_{\mathrm{out}}$ is fan-out, the number of receiving units. It is a common starting point for roughly linear or suitably scaled tanh layers. He initialisation compensates specifically for the loss of second moment through ReLU. The two prescriptions differ because they model different transformations.[1](#ref-1),[2](#ref-2)
+**Glorot, or Xavier, initialisation** balances forward and backward scale with weight variance approximately $2/(n_{\mathrm{in}}+n_{\mathrm{out}})$ under its assumptions. Here, $n_{\mathrm{in}}$ is fan-in and $n_{\mathrm{out}}$ is fan-out, the number of receiving units. It is a common starting point for roughly linear or suitably scaled tanh layers. He initialisation compensates specifically for the loss of second moment through ReLU. For 64 inputs and 64 receiving units, Glorot gives a standard deviation of $\sqrt{2/(64+64)}=0.125$, compared with $0.1768$ from He. The extra variance in the He rule compensates for the negative preactivations that ReLU zeros.[1](#ref-1),[2](#ref-2)
 
 Use the initialisation prescribed for the actual architecture and activation rather than applying a hidden-layer rule to every tensor. Output layers can have different requirements. Standardising input features using training-set statistics also helps avoid an initial weighted sum being dominated by one feature's units; it does not replace hidden-layer initialisation or justify using held-out data to fit preprocessing.
 
@@ -134,18 +130,18 @@ $$
 
 To see why a large derivative may require a small learning rate, consider the one-parameter loss $\mathcal L(\theta)=a\theta^2/2$, where $a>0$ controls curvature: larger $a$ means a sharper increase away from zero. Its gradient is $a\theta$, so SGD gives $\theta_{t+1}=(1-\eta a)\theta_t$. The magnitude shrinks only when $0<\eta a<2$. A real network has multiple directions with different curvature; a step that works along a gently changing direction can overshoot along a sharply changing one. This quadratic calculation explains a local constraint, not a universal learning-rate bound for networks.
 
-**Momentum** combines the current gradient with an accumulated gradient from earlier updates. Call the accumulated gradient $v_t$. You choose the retention factor $\mu$ between 0 and 1: it multiplies the previous accumulation, so a larger value carries more of that history into the next update. Starting with $v_0=0$, we use the following update:
+**Momentum** combines the current gradient with an accumulated gradient from earlier updates. Call the accumulated gradient $u_t$. You choose the retention factor $\mu$ between 0 and 1: it multiplies the previous accumulation, so a larger value carries more of that history into the next update. Starting with $u_0=0$, we use the following update:
 
 $$
-v_t=\mu v_{t-1}+g_t,
-\qquad \theta_{t+1}=\theta_t-\eta_tv_t.
+u_t=\mu u_{t-1}+g_t,
+\qquad \theta_{t+1}=\theta_t-\eta_tu_t.
 $$
 
-Repeated gradient signs reinforce the accumulated gradient, while rapidly alternating signs tend to cancel. Momentum can therefore make more consistent progress through noisy updates. It can also carry the model past a good region if the learning rate or retained accumulation is too large. Some descriptions instead use an average $v_t=\mu v_{t-1}+(1-\mu)g_t$. For the same sequence of gradients, starting from zero with fixed $\mu$, that average is $1-\mu$ times the accumulation used here, so the same numerical learning rate produces a smaller step. Separate training runs can develop different gradients because their earlier updates differ. Check the equation, not just the name “momentum,” when comparing settings.[10](#ref-10)
+Repeated gradient signs reinforce the accumulated gradient, while rapidly alternating signs tend to cancel. Momentum can therefore make more consistent progress through noisy updates. It can also carry the model past a good region if the learning rate or retained accumulation is too large. Some descriptions instead use an average $u_t=\mu u_{t-1}+(1-\mu)g_t$. For the same sequence of gradients, starting from zero with fixed $\mu$, that average is $1-\mu$ times the accumulation used here, so the same numerical learning rate produces a smaller step. Separate training runs can develop different gradients because their earlier updates differ. Check the equation, not just the name “momentum,” when comparing settings.[10](#ref-10)
 
 ### Adam estimates a scale for each parameter
 
-Two parameters can receive gradients of very different magnitudes. **Adam** keeps both an exponentially weighted mean gradient and an exponentially weighted mean squared gradient. Call them $m_t$ and $v_t$; they start at zero. Here $m_t$ is an array of running gradient averages, not the hidden width $m$ from Module 1. Adam's $v_t$ averages **squared** gradients, whereas the momentum variable above accumulates gradients without squaring them. You choose retention factors $\beta_1$ and $\beta_2$; larger values retain more of the previous estimates:
+Two parameters can receive gradients of very different magnitudes. **Adam** keeps both an exponentially weighted mean gradient and an exponentially weighted mean squared gradient. Call them $m_t$ and $v_t$; they start at zero. Here $m_t$ is an array of running gradient averages, not the hidden width $m$ from Module 1. Adam's $v_t$ averages **squared** gradients. The momentum accumulator $u_t$ above uses the gradients themselves. You choose retention factors $\beta_1$ and $\beta_2$; larger values retain more of the previous estimates:
 
 $$
 m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,
@@ -153,7 +149,7 @@ m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,
 v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2.
 $$
 
-All squares and divisions in Adam are entrywise. Because both estimates start at zero, Adam corrects their initial bias using $\hat m_t=m_t/(1-\beta_1^t)$ and $\hat v_t=v_t/(1-\beta_2^t)$. The update is
+All squares and divisions in Adam are entrywise. Because both estimates start at zero, Adam corrects their initial bias using $\hat m_t=m_t/(1-\beta_1^t)$ and $\hat v_t=v_t/(1-\beta_2^t)$. For a constant gradient $g$ in one coordinate, the first average after $t$ updates is $(1-\beta_1)(1+\beta_1+\cdots+\beta_1^{t-1})g=(1-\beta_1^t)g$. Dividing by $1-\beta_1^t$ recovers $g$. The same calculation for the squared gradient gives $(1-\beta_2^t)g^2$ and explains the second correction. At step $t$, $\theta_t$ is the parameter before the step. The moments $m_t$ and $v_t$ already include the gradient at $\theta_t$ and are used to compute $\theta_{t+1}$:
 
 $$
 \theta_{t+1}=\theta_t-
@@ -162,7 +158,7 @@ $$
 
 The small positive constant $\epsilon$ prevents division by zero. For each parameter, a large running average of squared gradients produces a larger denominator, reducing its step relative to the mean gradient in the numerator. Adam adapts the step using that parameter's gradient history; it does not determine which input features matter or guarantee generalisation.[3](#ref-3)
 
-For a numerical comparison, choose a starting parameter $\theta_1=1$, a first batch gradient of 2 and learning rate $0.1$. The round numbers make the update sizes easy to compare; the learning rate is not a recommendation for an inspection model. SGD changes the parameter to $0.8$. Momentum also changes it to $0.8$ on its first step because the previous accumulation is zero. For Adam, choose $\beta_1=0.9$ and $\beta_2=0.999$, common starting settings rather than learned values. Then $m_1=0.2$ and $v_1=0.004$; bias correction gives $\hat m_1=2$, $\hat v_1=4$. Ignoring a negligible $\epsilon$, the new parameter is $1-0.1(2/2)=0.9$. The same numerical learning rate therefore does not imply the same parameter change across optimisers. Start with the intended implementation's documented retention settings and compare changes when training behaviour warrants them.[3](#ref-3),[13](#ref-13)
+For a numerical comparison, choose a starting parameter $\theta_1=1$, a first batch gradient of 2 and learning rate $0.1$. The round numbers make the update sizes easy to compare. SGD changes the parameter to $0.8$. Momentum also changes it to $0.8$ on its first step because the previous accumulation is zero. For Adam, choose $\beta_1=0.9$ and $\beta_2=0.999$, common starting settings rather than learned values. Then $m_1=0.2$ and $v_1=0.004$; bias correction gives $\hat m_1=2$, $\hat v_1=4$. Ignoring a negligible $\epsilon$, the new parameter is $1-0.1(2/2)=0.9$. The same numerical learning rate therefore does not imply the same parameter change across optimisers. Start with the intended implementation's documented retention settings and compare changes when training behaviour warrants them.[3](#ref-3),[13](#ref-13)
 
 | Method | Useful starting reason | Main caution |
 | --- | --- | --- |
@@ -172,9 +168,17 @@ For a numerical comparison, choose a starting parameter $\theta_1=1$, a first ba
 
 Treat optimiser choice as a comparison to test under a stated budget. Counting epochs alone can hide differences in batch size and number of updates. Compare data exposure, update count, compute and the metric you actually care about.
 
+### Gradient clipping caps the gradient norm before the update
+
+If finite gradient norms spike just before the loss spikes, compare a run with global norm clipping. Let $g$ collect the current batch-loss derivatives with respect to all trainable parameters. For nonzero $\lVert g\rVert_2$, multiply $g$ by $\min(1,c/\lVert g\rVert_2)$, where $c>0$ is the chosen threshold. For example, a norm of $12$ and a threshold of $3$ multiply every entry by $1/4$. A norm of $2$ is unchanged. The scaling preserves the gradient's direction. In plain SGD it also caps the step norm at $\eta_t c$. With momentum or Adam, the optimiser's stored state also determines the actual step.
+
+Choose a threshold by inspecting the model's finite gradient norms and measuring how often clipping occurs and whether loss spikes subside. Check nonfinite gradients separately. A zero gradient remains zero.[12](#ref-12)
+
 ### Learning-rate schedules change the update scale over time
 
 A single learning rate need not serve the whole run. A larger early rate may produce useful progress, while a smaller later rate can reduce oscillation and refine the fit. A **schedule** specifies $\eta_t$ over updates: step decay lowers it at chosen milestones, while cosine decay lowers it smoothly toward a chosen minimum. A **warmup** increases it from a small starting value to a target rate during the opening updates.
+
+For example, use linear warmup from $0.001$ at update 1 to $0.01$ at update 101, then cosine decay from $0.01$ to $0.001$ over the next 900 updates. Halfway through the decay, at update 551, the rate is $0.0055$. It reaches $0.001$ at update 1001. The warmup lets the run begin with smaller steps, while the decay reduces step size later without an abrupt drop.
 
 You choose the schedule's duration, milestones and minimum rate; these are not values learned by backpropagation. Compare them within a fixed update budget after establishing a stable initial rate. Warmup can help when early activations or optimiser estimates are still settling, but it cannot reconnect a missing gradient. Decay that happens too soon can leave a poorly fitted model making very small updates. Record whether schedule steps count batches or epochs, since the same stated duration can otherwise describe different runs. For the original cosine schedule with warm restarts, see [11](#ref-11); a restart raises the rate again in a later cycle, whereas warmup describes its initial increase.
 
@@ -182,27 +186,37 @@ You choose the schedule's duration, milestones and minimum rate; these are not v
 
 Initialisation acts once. Hidden activations then change as parameters learn. A normalisation layer repeatedly centres and rescales selected groups of activations, giving later computations a more controlled input scale. The choice of group determines both the computation and the dependencies it introduces.
 
-For a group of $M$ scalar values $u_1,\ldots,u_M$, define its mean $\bar u$ and variance estimate $s_u^2$ by
+### Batch normalisation uses other observations in the batch
+
+Take a dense-layer preactivation matrix $Z$ of shape $B\times m$, where $B$ is the batch size and $m$ is the hidden width: rows are observations, columns are hidden units. **Batch normalisation (BatchNorm)** computes a separate mean and variance down each column during training. Thus each unit uses $B$ values, one from each observation. Its learned scale and offset are reused for that unit across all observations. In a convolutional layer, the usual grouping combines batch and spatial positions separately for each channel.[4](#ref-4)
+
+Take the following batch of three observations and three hidden units. The first column contains the preactivations for unit 1.
+
+$$
+Z=\begin{bmatrix}
+1&2&6\\
+3&4&7\\
+5&8&9
+\end{bmatrix}.
+$$
+
+To normalise the first entry with BatchNorm, use the column values $1,3,5$. The mean is 3 and the variance estimate is $(4+0+4)/3=8/3$. Use unit scale and zero offset to isolate the effect of centring and scaling. Ignoring the small denominator stabiliser for this calculation, the first observation's normalised value is $(1-3)/\sqrt{8/3}\approx-1.225$. Change only the third observation's preactivation from 5 to 9. The new mean is $13/3$, the variance is $104/9$, and the first normalised value becomes $-10/\sqrt{104}\approx-0.981$. The value entering BatchNorm for the first observation did not change, but its training-time output did because the batch statistics changed.
+
+For a group of $M$ scalar values $u_1,\ldots,u_M$, define its mean $\bar u$ and variance estimate $s_u^2$ used to normalise a training group by
 
 $$
 \bar u=\frac1M\sum_{i=1}^M u_i,
 \qquad s_u^2=\frac1M\sum_{i=1}^M(u_i-\bar u)^2.
 $$
 
-First centre and rescale each value to obtain $\tilde u_i$. Then apply the learned scale and offset to produce the normalisation layer's output $y_i$; here $y_i$ denotes a layer output, not a training target:
+First centre and rescale each value to obtain $\tilde u_i$. Then apply the learned scale and offset to produce the normalisation layer's output $u_i^{\mathrm{out}}$:
 
 $$
 \tilde u_i=\frac{u_i-\bar u}{\sqrt{s_u^2+\epsilon}},
-\qquad y_i=\gamma\tilde u_i+\beta.
+\qquad u_i^{\mathrm{out}}=\gamma\tilde u_i+\beta.
 $$
 
-The positive constant $\epsilon$ makes the division defined even for a constant group. The network learns the scale $\gamma$ and offset $\beta$ by backpropagation, just as it learns weights and biases. In contrast, the mean $\bar u$ and variance $s_u^2$ are calculated from the values in the group. The next two sections specify which values form a group and which outputs use each learned scale and offset. Because changing one group member also changes the calculated mean and variance, normalisation changes how derivatives connect the group's values.
-
-### Batch normalisation uses other observations in the batch
-
-Take a dense-layer preactivation matrix $Z$ of shape $B\times m$, where $B$ is the batch size and $m$ is the hidden width: rows are observations, columns are hidden units. **Batch normalisation (BatchNorm)** computes a separate mean and variance down each column during training. Thus each unit uses $B$ values, one from each observation. Its learned scale and offset are reused for that unit across all observations. In a convolutional layer, the usual grouping combines batch and spatial positions separately for each channel.[4](#ref-4)
-
-For one hidden unit, choose a batch of three observations whose preactivations are 1, 3 and 5. The mean is 3 and the variance estimate is $(4+0+4)/3=8/3$. Set $\gamma=1$ and $\beta=0$ for this illustration so we can examine centring and scaling alone; these parameters can change during training. With negligible $\epsilon$, the first observation's normalised value is $(1-3)/\sqrt{8/3}\approx-1.225$. Change only the third observation's preactivation from 5 to 9. The new mean is $13/3$, the variance is $104/9$, and the first normalised value becomes $-10/\sqrt{104}\approx-0.981$. The value entering BatchNorm for the first observation did not change, but its training-time output did because the batch statistics changed.
+The positive constant $\epsilon$ makes the division defined even for a constant group. The network learns the scale $\gamma$ and offset $\beta$ by backpropagation, just as it learns weights and biases. In contrast, the mean $\bar u$ and variance $s_u^2$ are calculated from the values in the group. The $1/M$ divisor is used for the group variance in this training calculation. With independent samples from the same distribution, $1/(M-1)$ instead gives the usual unbiased sample variance estimate. Because changing one group member also changes the calculated mean and variance, normalisation changes how derivatives connect the group's values.
 
 In usual inference mode, BatchNorm uses stored running statistics accumulated during training, together with the learned scale and offset. It does not estimate the deployed observation's statistics from the current inference batch. Consequently, incorrect mode selection, poorly estimated running statistics or a deployment distribution shift can damage predictions. Small or strongly correlated batches can also make training statistics unreliable; dense BatchNorm with just one observation has no useful within-column variation.
 
@@ -211,6 +225,8 @@ The original paper motivated BatchNorm partly through “internal covariate shif
 ### Layer normalisation uses features within one observation
 
 For the same $B\times m$ matrix, **layer normalisation (LayerNorm)** computes statistics across the $m$ hidden activations in each row. One observation's statistics therefore do not depend on other observations. Standard LayerNorm has a learned scale and offset for each normalised feature, reused across observations. It calculates each observation's mean and variance from that observation in both training and inference.[6](#ref-6)
+
+Apply LayerNorm to the first row of the same matrix. Its group is $1,2,6$, with mean $3$ and variance $14/3$. With unit scale, zero offset and negligible $\epsilon$, the first entry becomes $(1-3)/\sqrt{14/3}\approx-0.926$. Changing the third observation's first entry from $5$ to $9$ leaves that first row unchanged, so its LayerNorm output stays at $-0.926$. The same change moved the first entry's BatchNorm output from $-1.225$ to $-0.981$ because it changed the first column.
 
 For a sequence tensor with shape $B\times T\times d$, $B$ counts observations, $T$ counts sequence positions and $d$ counts features at each position. A common LayerNorm choice calculates a mean and variance across the $d$ features separately for each observation and position. It does not automatically normalise across time. Always identify the actual axes: “normalise the layer” alone does not specify the operation.
 
@@ -242,9 +258,11 @@ g_h=(I+J_F)^Tg_{\mathrm{next}}
 =g_{\mathrm{next}}+J_F^Tg_{\mathrm{next}}.
 $$
 
+In the scalar example, $I$ is $1$, $J_F$ is $0.2$, and $g_{\mathrm{next}}$ is $3$. The two terms are $3$ and $0.2\times3=0.6$, which recover $3.6$.
+
 One contribution passes directly through the addition without multiplying by the residual branch's weights. However, the two contributions can reinforce or cancel. In a scalar example, $F(h)=-h$ gives derivative $1+(-1)=0$. A residual connection provides a useful route; it does not guarantee that the total gradient cannot vanish or explode.
 
-If the input vector and residual output have different dimensions, choose a learned linear projection with matrix $P$ that maps the input to the required output dimension. For $n_{\mathrm{in}}$ incoming entries and $n_{\mathrm{out}}$ output entries, $P$ has shape $n_{\mathrm{out}}\times n_{\mathrm{in}}$. The shortcut then computes $P h$ instead of passing $h$ through unchanged, and the block outputs $P h+F(h)$. Its backward contribution uses $P^T$ instead of an identity matrix. An activation after the addition also contributes its own derivative. These details matter when reading an architecture diagram: the simple identity-route equation applies to the addition exactly as written. Module 4 will examine how residual CNN blocks handle changes in spatial resolution and channel count.
+If the input vector and residual output have different dimensions, choose a learned linear projection with matrix $P$ that maps the input to the required output dimension. For $n_{\mathrm{in}}$ incoming entries and $n_{\mathrm{out}}$ output entries, $P$ has shape $n_{\mathrm{out}}\times n_{\mathrm{in}}$. The shortcut computes $Ph$, so the sum is $s=Ph+F(h)$. If an elementwise activation $\psi$ follows the sum, first multiply the gradient at its output $g_{\mathrm{out}}$ by the activation slopes to obtain $g_s=g_{\mathrm{out}}\odot\psi'(s)$. The two paths then give $g_h=P^Tg_s+J_F^Tg_s$. These details matter when reading an architecture diagram: the simple identity-route equation applies to the addition exactly as written. Module 4 will examine how residual CNN blocks handle changes in spatial resolution and channel count.
 
 Normalisation and residual connections can complement one another, but they solve different problems. Normalisation changes the scale and dependencies of a representation; a residual addition changes how representations and derivatives can pass through the architecture. Adding either without a diagnostic reason makes its effect harder to interpret.
 
@@ -254,13 +272,13 @@ Once the network can reduce its training loss, you still need useful predictions
 
 ### L2 penalties and weight decay coincide only in particular updates
 
-Let $w$ collect the weights selected for regularisation, and let $\lambda\geq0$ control its strength. Adding an L2 penalty gives the objective
+In this example, let $w$ collect the layer weight matrices flattened into a vector. Biases and normalisation scales are excluded from this penalty. Let $\lambda\geq0$ control its strength. Adding an L2 penalty gives the objective
 
 $$
 \mathcal J=\mathcal L_{\mathrm{data}}+\frac\lambda2\lVert w\rVert_2^2.
 $$
 
-The penalty's gradient is $\lambda w$. Under plain SGD, with data gradient $g_t$, the update becomes
+The penalty's gradient is $\lambda w$. Under plain SGD, let $g_t$ be the data-loss gradient with respect to the selected weights $w_t$. Their update becomes
 
 $$
 w_{t+1}=w_t-\eta_t(g_t+\lambda w_t)
@@ -275,9 +293,9 @@ $$
 
 With Adam, adding $\lambda w$ to the gradient also feeds that term into the moving averages and coordinate-wise scaling. It no longer produces the same uniform shrinkage. **AdamW** decouples weight decay from Adam's gradient adaptation: Adam's moments use the data gradient, and a separate term $-\eta_t\lambda w_t$ shrinks the selected weights. This distinction is why “Adam with an L2 penalty” and “AdamW” are different update rules.[8](#ref-8)
 
-State which parameters receive decay: biases and normalisation scales are often excluded, but that is a design choice. Strong decay can prevent a useful fit. For scale-invariant normalised layers, shrinking weights can also change effective optimisation behaviour, so smaller weights alone are not a complete explanation of generalisation.
+When configuring weight decay, specify which parameter groups receive it. Strong decay can prevent a useful fit. For scale-invariant normalised layers, shrinking weights can also change effective optimisation behaviour, so smaller weights alone are not a complete explanation of generalisation.
 
-You choose $\lambda$ rather than learning it as a prediction weight. The value $0.01$ above makes the arithmetic visible; it is not a generally suitable penalty. Compare several strengths using validation performance, with the optimiser and loss reduction fixed, because their definitions affect how strongly the penalty acts.
+You choose $\lambda$ rather than learning it as a prediction weight. The value $0.01$ above makes the shrinkage visible in the arithmetic. Compare several strengths using validation performance, with the optimiser and loss reduction fixed, because their definitions affect how strongly the penalty acts.
 
 ### Dropout changes the training computation
 
@@ -287,7 +305,7 @@ $$
 \tilde h_i=\frac{r_i h_i}{1-p},\qquad 0\leq p<1.
 $$
 
-Conditional on the original activation, $E[\tilde h_i\mid h_i]=h_i$. Choose $h_i=4$ and $p=0.5$ to make the two possible outcomes easy to compare: the training output is either 0 or 8, each with probability one half. Its average is 4. The probability $0.5$ is illustrative, not a recommendation for every layer. At inference, inverted dropout leaves the activation unchanged; it does not randomly discard features or scale them again.[9](#ref-9)
+Conditional on the original activation, $E[\tilde h_i\mid h_i]=h_i$. Choose $h_i=4$ and $p=0.5$ to make the two possible outcomes easy to compare: the training output is either 0 or 8, each with probability one half. Its average is 4. At inference, inverted dropout leaves the activation unchanged; it does not randomly discard features or scale them again.[9](#ref-9)
 
 Matching this activation's expectation does not mean a nonlinear network's deterministic prediction equals the exact average of all dropout predictions. Dropout introduces noise and changes the training objective in effect; it can improve robustness to reliance on particular activations, but can also slow fitting or cause underfitting. Its placement near BatchNorm can create a mismatch between noisy training statistics and inference activations. Use the intended architecture's arrangement and measure the effect rather than adding dropout everywhere.
 
@@ -301,13 +319,13 @@ Return to the six-hidden-layer inspection regressor. For this example it receive
 
 First inspect data and the computation. Confirm that inputs and targets align, predictions and targets have matching shapes, the loss is reduced as intended, gradients are cleared between updates, backpropagation reaches the trainable parameters, and the optimiser actually updates those parameters. Check for nonfinite values. These implementation failures can imitate architectural problems.
 
-Next, try fitting a fixed small subset in a separate diagnostic run with stochastic regularisation disabled. A model that cannot substantially reduce error on a learnable small subset warrants implementation, capacity or optimisation investigation before generalisation tuning. Success would show that this setup can fit those observations; it would not establish generalisation or the correctness of every other part of the pipeline.
+Next, try fitting a fixed, learnable subset in a separate diagnostic run. For example, select 32 observations and train on that same subset with dropout disabled. If the model uses BatchNorm, record its mode and batch size because both affect the calculation. State separately whether the diagnostic objective includes a weight penalty. A model that cannot substantially reduce error on a learnable small subset warrants implementation, capacity or optimisation investigation before generalisation tuning. Success would show that this setup can fit those observations; it would not establish generalisation or the correctness of every other part of the pipeline.
 
 For the hypothetical case, assume these checks pass. Input features are standardised using training data. The hidden weights were drawn independently with standard deviation $0.05$, and hidden biases are zero. That makes the initialisation-scale explanation concrete enough to test.
 
 ### Predict an observable consequence before changing a component
 
-The hypothesis is that the hidden initialisation makes forward activations collapse, contributing to weak learning signals. Under the approximation derived earlier, each width-64 ReLU layer multiplies the activation second moment by $0.08$. With input second moment 1, the predicted progression is:
+The hypothesis is that the hidden initialisation makes forward activations collapse, contributing to small early-layer gradients and updates. Under the approximation derived earlier, each width-64 ReLU layer multiplies the activation second moment by $0.08$. For the standardised training features in this example, the mean is $0$ and the variance is $1$, so the input second moment is $E[X^2]=\operatorname{Var}(X)+E[X]^2=1$. The predicted progression is:
 
 | Location | Predicted second moment with standard deviation 0.05 | With fan-in He initialisation |
 | --- | ---: | ---: |
@@ -316,7 +334,7 @@ The hypothesis is that the hidden initialisation makes forward activations colla
 | After hidden layer 3 | 0.000512 | Approximately 1 |
 | After hidden layer 6 | 0.000000262144 | Approximately 1 |
 
-These are calculated expectations under simplifying assumptions, not measured values. A finite network need not match them exactly. The prediction is a strong depth-related decline with the original rule and a substantially flatter initial scale with He initialisation.
+A finite network can depart from these expectations because they average over the initial weights and inputs. The prediction is a strong depth-related decline with the original rule and a substantially flatter initial scale with He initialisation.
 
 ### Change one factor and compare the quantities the hypothesis predicts
 
@@ -327,10 +345,10 @@ Before the first update, record each layer's activation root-mean-square value, 
 $$
 \rho_\ell=
 \frac{\lVert\Delta W_\ell\rVert_F}
-{\lVert W_\ell\rVert_F+\epsilon}.
+{\lVert W_\ell\rVert_F+\epsilon_\rho}.
 $$
 
-Here $\Delta W_\ell$ is the actual change from one update, the matrix norm means the square root of the sum of squared entries, and $\epsilon$ only protects a zero denominator. There is no universal healthy value of $\rho_\ell$. Compare its trajectory across layers and the two conditions. With Adam, actual updates are especially informative because raw gradient magnitudes do not directly determine step magnitudes.
+Here $\Delta W_\ell$ is the actual change from one update, the matrix norm means the square root of the sum of squared entries, and the small positive constant $\epsilon_\rho$ protects a zero denominator. For example, if a layer's weight norm is $2$ and one update has norm $0.002$, the ratio is approximately $0.001$, or $0.1\%$. If its next update has norm $0.006$ with a similar weight norm, the ratio rises to about $0.3\%$. Compare these trajectories across layers and between the two conditions alongside the training loss. With Adam, actual updates are especially informative because raw gradient magnitudes do not directly determine step magnitudes.
 
 If the new initialisation flattens the initial activation scales, increases useful early-layer updates and consistently improves training loss at the fixed budget, the results support this hypothesis. They do not prove initialisation was the only cause or establish better held-out performance. If activation scales improve but loss does not, investigate update size, output/loss compatibility, inactive ReLUs or other bottlenecks. If the scales were already stable, the initialisation hypothesis loses support; changing more components at once would hide that result.
 
@@ -339,12 +357,10 @@ If the new initialisation flattens the initial activation scales, increases usef
 | Remaining observation | Plausible next comparison | Reason and limitation |
 | --- | --- | --- |
 | Loss spikes or diverges; updates are very large | Reduce the learning rate with other settings fixed | Tests overshooting; also check numerical and data errors |
-| Finite but very large gradient norms precede spikes | Compare with global gradient-norm clipping | Limits occasional large updates; does not repair vanishing derivatives or diagnose their source |
+| Finite but very large gradient norms precede spikes | Compare with [global gradient-norm clipping](#gradient-clipping-caps-the-gradient-norm-before-the-update) | Caps the gradient norm before the optimiser step. Check whether actual update and loss spikes subside |
 | Scales are reasonable, updates are persistently tiny, loss falls slowly | Test a larger learning rate within a bounded range | Tests conservative steps; a larger rate may become unstable |
 | Deeper plain model fits worse after scale and update checks | Compare a suitable residual version | Tests an architectural route to easier fitting; changes architecture, so use a separate comparison |
 | Training fit is good but held-out error worsens | Test weight decay or dropout individually; inspect data and validation | Targets generalisation, with a possible cost to training fit |
-
-For gradient clipping, let $g$ collect the batch's gradients and choose a threshold $c>0$. Global norm clipping replaces $g$ by $g\min(1,c/\lVert g\rVert_2)$ when its norm is nonzero. If the norm is at most $c$, the multiplier is 1 and the gradient is unchanged. Above $c$, it rescales the gradient to norm $c$ while preserving its direction. Choose a threshold by inspecting the finite gradient norms of the model and checking whether clipping curbs spikes without making most useful updates very small. There is no universal threshold independent of loss reduction and model scale; clipping cannot make nonfinite gradients trustworthy or recover gradients that are zero.[12](#ref-12)
 
 The central skill is to write down an explanation that could be contradicted by the comparison. A falling loss after changing initialisation, optimiser, normalisation and dropout together would show that the new configuration works better under that run. It would not tell you which explanation was right.
 
@@ -356,7 +372,7 @@ Diagnose in that causal order when the evidence supports it: verify the computat
 
 ## References
 
-Primary sources checked on 2 November 2026. Numerical examples, the inspection scenario and the diagnostic table are original teaching constructions. Source results do not validate those hypothetical observations.
+Primary sources checked on 2 November 2026.
 
 1. <span id="ref-1"></span>Glorot, X. & Bengio, Y. (2010). [Understanding the difficulty of training deep feedforward neural networks](https://proceedings.mlr.press/v9/glorot10a.html). *AISTATS*, PMLR 9, 249–256. Initialisation, saturation and propagation of activation/gradient scale.
 2. <span id="ref-2"></span>He, K., Zhang, X., Ren, S. & Sun, J. (2015). [Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification](https://arxiv.org/abs/1502.01852). *ICCV*. Rectifier-aware initialisation and its assumptions.
