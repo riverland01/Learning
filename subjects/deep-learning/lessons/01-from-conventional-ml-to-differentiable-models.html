@@ -1043,10 +1043,7 @@ data.<sup><a href="#ref-2">2</a></sup><sup><a href="#ref-7">7</a></sup></p>
 <p>Increasing <strong>depth</strong> adds successive learned
 transformations. An extra nonlinear hidden layer receives the features
 formed by the previous layer, so it can build combinations of those
-features rather than working directly from the original inputs. Depth
-conventions differ: our network has one hidden layer and two affine
-layers. State what you are counting when comparing
-designs.<sup><a href="#ref-2">2</a></sup></p>
+features rather than working directly from the original inputs. People count depth differently. Our network has one hidden layer but two affine steps — one in the hidden layer, one in the output — so say which you are counting when you compare designs.<sup><a href="#ref-2">2</a></sup></p>
 <p>Width and depth therefore offer different ways to represent a
 function. Neither guarantees a better fitted model. A useful design must
 also be trainable with the available data and resources, and its
