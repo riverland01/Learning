@@ -1077,29 +1077,29 @@ one method will win:</p>
 </colgroup>
 <thead>
 <tr>
-<th>Situation</th>
+<th>When to try it</th>
 <th>Reasonable starting choice</th>
 <th>Main limitation to examine</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Few engineered features; approximately additive relationship</td>
+<td>Data is a small table of a few engineered numeric features, e.g. contrast and edge density per image, and each feature’s effect stays the same whatever the others are</td>
 <td>Linear model with suitable transforms</td>
 <td>Missed nonlinear structure</td>
 </tr>
 <tr>
-<td>Tabular input features; useful conditional interactions</td>
+<td>Data is a table of features, one row per observation, and one feature’s effect depends on another’s value — e.g. contrast matters only when edge density is high</td>
 <td>Boosted-tree baseline</td>
 <td>Fit to validation setting and deployment needs</td>
 </tr>
 <tr>
-<td>Jointly learned continuous transformations are useful</td>
+<td>Data is continuous inputs with many numeric values per observation, and no feature you can write down captures the pattern; it has to be learned from the inputs</td>
 <td>MLP</td>
 <td>Trainability, data sufficiency and parameter cost</td>
 </tr>
 <tr>
-<td>Spatial structure is central</td>
+<td>Data is a grid, e.g. an image, with each observation as pixels arranged in rows and columns, and the same pattern can appear anywhere in it</td>
 <td>Compare with a convolutional model</td>
 <td>Whether locality and sharing suit the task</td>
 </tr>

@@ -398,12 +398,12 @@ Parameter cost matters if we replace our two engineered input features with imag
 
 For the inspection task, keep simpler models as baselines. If a few engineered input features capture the useful information, learning many additional features may add complexity without improving validation performance. If you need to learn from image structure, a dense network's separate weight for every pixel position may be a poor fit. The following choices are starting judgements to test, not claims that one method will win:
 
-| Situation | Reasonable starting choice | Main limitation to examine |
+| When to try it | Reasonable starting choice | Main limitation to examine |
 | --- | --- | --- |
-| Few engineered features; approximately additive relationship | Linear model with suitable transforms | Missed nonlinear structure |
-| Tabular input features; useful conditional interactions | Boosted-tree baseline | Fit to validation setting and deployment needs |
-| Jointly learned continuous transformations are useful | MLP | Trainability, data sufficiency and parameter cost |
-| Spatial structure is central | Compare with a convolutional model | Whether locality and sharing suit the task |
+| Data is a small table of a few engineered numeric features, e.g. contrast and edge density per image, and each feature's effect stays the same whatever the others are | Linear model with suitable transforms | Missed nonlinear structure |
+| Data is a table of features, one row per observation, and one feature's effect depends on another's value — e.g. contrast matters only when edge density is high | Boosted-tree baseline | Fit to validation setting and deployment needs |
+| Data is continuous inputs with many numeric values per observation, and no feature you can write down captures the pattern; it has to be learned from the inputs | MLP | Trainability, data sufficiency and parameter cost |
+| Data is a grid, e.g. an image, with each observation as pixels arranged in rows and columns, and the same pattern can appear anywhere in it | Compare with a convolutional model | Whether locality and sharing suit the task |
 
 A network's features are shaped by what helps reduce the training objective. If an irrelevant pattern predicts the labels in your training data, the network may use it. An active hidden unit therefore shows that a calculation occurred; it does not by itself show that the network recognised a meaningful defect. You still need validation and error analysis to judge whether the learned features support reliable predictions.
 
