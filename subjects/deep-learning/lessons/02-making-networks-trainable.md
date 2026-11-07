@@ -36,7 +36,7 @@ The same loss pattern can have several causes. Use the observations below to dec
 
 Compare losses measured in comparable conditions. A training objective that includes a weight penalty differs from a validation data loss without that penalty. Dropout and batch normalisation can also make training-mode and evaluation-mode losses differ. Before interpreting a gap, know which computation each curve records.
 
-To understand why an early layer may learn slowly, we will first follow the numbers travelling forward and the gradients travelling backward. Only then can we choose an intervention for a particular failure.
+An early layer can learn too slowly — or too fast. To see why, we will follow the activations forward and the gradients backward: each layer multiplies them, so they can shrink or grow with depth. Only then can we choose an intervention for a particular failure.
 
 ## Depth multiplies the factors that carry a gradient
 
